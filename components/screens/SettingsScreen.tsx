@@ -1,6 +1,6 @@
 'use client';
 
-import type { CardMode, GameSettings, MaxNumber } from '@/lib/types';
+import type { AnswerMode, CardMode, GameSettings, MaxNumber } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import OperatorPicker from '@/components/game/OperatorPicker';
 
@@ -88,15 +88,46 @@ export default function SettingsScreen({
         </div>
       </section>
 
-      {/* Operator picker (calculation mode only) */}
+      {/* Calculation sub-settings */}
       {settings.mode === 'calculation' && (
-        <section className="animate-[fade-in_0.3s_ease_both]">
-          <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">けいさんのしゅるい</h2>
-          <OperatorPicker
-            selected={settings.operators}
-            onChange={(ops) => onSettingsChange({ ...settings, operators: ops })}
-          />
-        </section>
+        <>
+          <section className="animate-[fade-in_0.3s_ease_both]">
+            <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">こたえのいれかた</h2>
+            <div className="flex gap-3">
+              {([
+                { value: 'reveal' as AnswerMode, emoji: '👆', label: 'タップでみる', desc: '式をタップして答えを確認' },
+                { value: 'input'  as AnswerMode, emoji: '✏️', label: 'じぶんで入力', desc: '答えを自分で打ち込む' },
+              ] as const).map(({ value, emoji, label, desc }) => (
+                <button
+                  key={value}
+                  onClick={() => onSettingsChange({ ...settings, answerMode: value })}
+                  className={`
+                    flex-1 py-3 px-3 rounded-2xl border-4 transition-all active:scale-95 text-left
+                    ${settings.answerMode === value
+                      ? 'bg-[var(--color-bingo-purple)] border-[var(--color-bingo-purple)] shadow-md'
+                      : 'bg-white border-gray-200'}
+                  `}
+                >
+                  <p className="text-xl">{emoji}</p>
+                  <p className={`text-sm font-black mt-1 ${settings.answerMode === value ? 'text-white' : 'text-gray-400'}`}>
+                    {label}
+                  </p>
+                  <p className={`text-xs mt-0.5 ${settings.answerMode === value ? 'text-purple-200' : 'text-gray-300'}`}>
+                    {desc}
+                  </p>
+                </button>
+              ))}
+            </div>
+          </section>
+
+          <section className="animate-[fade-in_0.3s_ease_both]">
+            <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">けいさんのしゅるい</h2>
+            <OperatorPicker
+              selected={settings.operators}
+              onChange={(ops) => onSettingsChange({ ...settings, operators: ops })}
+            />
+          </section>
+        </>
       )}
 
       {/* Number range */}

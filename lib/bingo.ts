@@ -19,7 +19,9 @@ export function createInitialGameState(
     drawnNumbers: [],
     currentNumber: null,
     currentProblem: null,
+    awaitingAnswer: false,
     lastMatchFound: null,
+    lastAnswerWrong: false,
     bingoCard: card,
     isGameOver: false,
   };

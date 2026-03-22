@@ -12,6 +12,7 @@ interface Props {
   gameState: GameState;
   settings: GameSettings;
   onDraw: () => void;
+  onAnswerSubmit: (answer: number) => void;
   onFinish: () => void;
   onReset: () => void;
 }
@@ -21,6 +22,7 @@ export default function GameScreen({
   gameState,
   settings,
   onDraw,
+  onAnswerSubmit,
   onFinish,
   onReset,
 }: Props) {
@@ -31,15 +33,31 @@ export default function GameScreen({
     remainingNumbers,
     bingoCard,
     lastMatchFound,
+    lastAnswerWrong,
+    awaitingAnswer,
     isGameOver,
   } = gameState;
 
   const isWebCard = settings.cardMode === 'web';
+  const isInputMode = settings.mode === 'calculation' && settings.answerMode === 'input';
 
-  // In web card mode, show unmarked cell count as "remaining"
   const unmarkedCount = bingoCard
     ? bingoCard.marked.flat().filter((m) => !m).length
     : 0;
+
+  // Feedback banner content
+  let feedbackText: string | null = null;
+  let feedbackGreen = false;
+  if (lastAnswerWrong) {
+    feedbackText = '✗ まちがい！もう一度といてね…';
+  } else if (lastMatchFound === true) {
+    feedbackText = isWebCard ? '✓ カードにあった！マークしたよ！' : '✓ せいかい！';
+    feedbackGreen = true;
+  } else if (lastMatchFound === false && !lastAnswerWrong) {
+    feedbackText = isWebCard
+      ? '✗ カードにない…またでてくるよ！'
+      : '✗ はずれ…またでてくるよ！';
+  }
 
   return (
     <div className="flex flex-col gap-4 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
@@ -54,39 +72,40 @@ export default function GameScreen({
         </button>
       </div>
 
-      {/* Number display */}
+      {/* Number / problem display */}
       <NumberDisplay
         key={`${currentNumber ?? 'empty'}-${drawnNumbers.length}`}
         number={currentNumber}
         problem={currentProblem}
         mode={settings.mode}
+        answerMode={settings.answerMode}
+        onAnswer={isInputMode ? onAnswerSubmit : undefined}
       />
 
-      {/* Match feedback (web card mode only) */}
-      {isWebCard && lastMatchFound !== null && (
+      {/* Feedback banner */}
+      {feedbackText && (
         <div
-          key={drawnNumbers.length}
+          key={`${drawnNumbers.length}-${lastAnswerWrong}`}
           className={`
-            text-center text-base font-black py-2 rounded-2xl animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]
-            ${lastMatchFound
-              ? 'bg-[var(--color-bingo-green)] text-white'
-              : 'bg-gray-100 text-gray-500'}
+            text-center text-base font-black py-2 rounded-2xl
+            animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]
+            ${feedbackGreen ? 'bg-[var(--color-bingo-green)] text-white' : 'bg-gray-100 text-gray-500'}
           `}
         >
-          {lastMatchFound ? '✓ カードにあった！マークしたよ！' : '✗ はずれ… またでてくるよ！'}
+          {feedbackText}
         </div>
       )}
 
-      {/* Draw button */}
+      {/* Draw button — disabled while waiting for input answer */}
       <DrawButton
         onDraw={onDraw}
-        disabled={isGameOver}
+        disabled={isGameOver || awaitingAnswer}
         remaining={isWebCard ? unmarkedCount : remainingNumbers.length}
         label={isWebCard ? 'あと' : 'のこり'}
         unit={isWebCard ? 'マス' : '個'}
       />
 
-      {/* Manual "Bingo!" button — paper card mode only */}
+      {/* Manual "Bingo!" — paper card mode only */}
       {!isWebCard && (
         <Button
           variant="secondary"
@@ -99,7 +118,7 @@ export default function GameScreen({
         </Button>
       )}
 
-      {/* Bingo card (web card mode) */}
+      {/* Web card */}
       {isWebCard && bingoCard && (
         <BingoCardDisplay
           card={bingoCard}
@@ -107,7 +126,7 @@ export default function GameScreen({
         />
       )}
 
-      {/* Drawn history (paper mode) */}
+      {/* Drawn history — paper mode */}
       {!isWebCard && <DrawnHistory drawnNumbers={drawnNumbers} />}
     </div>
   );
