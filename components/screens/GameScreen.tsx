@@ -13,6 +13,7 @@ interface Props {
   settings: GameSettings;
   onDraw: () => void;
   onAnswerSubmit: (answer: number) => void;
+  onCellTap: (row: number, col: number) => void;
   onFinish: () => void;
   onReset: () => void;
 }
@@ -23,6 +24,7 @@ export default function GameScreen({
   settings,
   onDraw,
   onAnswerSubmit,
+  onCellTap,
   onFinish,
   onReset,
 }: Props) {
@@ -32,7 +34,6 @@ export default function GameScreen({
     currentProblem,
     remainingNumbers,
     bingoCard,
-    lastMatchFound,
     lastAnswerWrong,
     awaitingAnswer,
     isGameOver,
@@ -44,20 +45,6 @@ export default function GameScreen({
   const unmarkedCount = bingoCard
     ? bingoCard.marked.flat().filter((m) => !m).length
     : 0;
-
-  // Feedback banner content
-  let feedbackText: string | null = null;
-  let feedbackGreen = false;
-  if (lastAnswerWrong) {
-    feedbackText = '✗ まちがい！もう一度といてね…';
-  } else if (lastMatchFound === true) {
-    feedbackText = isWebCard ? '✓ カードにあった！マークしたよ！' : '✓ せいかい！';
-    feedbackGreen = true;
-  } else if (lastMatchFound === false && !lastAnswerWrong) {
-    feedbackText = isWebCard
-      ? '✗ カードにない…またでてくるよ！'
-      : '✗ はずれ…またでてくるよ！';
-  }
 
   return (
     <div className="flex flex-col gap-4 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
@@ -82,21 +69,17 @@ export default function GameScreen({
         onAnswer={isInputMode ? onAnswerSubmit : undefined}
       />
 
-      {/* Feedback banner */}
-      {feedbackText && (
+      {/* Wrong-answer feedback (input mode only) */}
+      {lastAnswerWrong && (
         <div
-          key={`${drawnNumbers.length}-${lastAnswerWrong}`}
-          className={`
-            text-center text-base font-black py-2 rounded-2xl
-            animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]
-            ${feedbackGreen ? 'bg-[var(--color-bingo-green)] text-white' : 'bg-gray-100 text-gray-500'}
-          `}
+          key={drawnNumbers.length}
+          className="text-center text-base font-black py-2 rounded-2xl bg-gray-100 text-gray-500 animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
         >
-          {feedbackText}
+          ✗ まちがい！もう一度といてね…
         </div>
       )}
 
-      {/* Draw button — disabled while waiting for input answer */}
+      {/* Draw button */}
       <DrawButton
         onDraw={onDraw}
         disabled={isGameOver || awaitingAnswer}
@@ -105,7 +88,7 @@ export default function GameScreen({
         unit={isWebCard ? 'マス' : '個'}
       />
 
-      {/* Manual "Bingo!" — paper card mode only */}
+      {/* Manual "Bingo!" button — paper card mode only */}
       {!isWebCard && (
         <Button
           variant="secondary"
@@ -118,11 +101,12 @@ export default function GameScreen({
         </Button>
       )}
 
-      {/* Web card */}
+      {/* Web card with tap-to-open */}
       {isWebCard && bingoCard && (
         <BingoCardDisplay
           card={bingoCard}
-          lastMatchedNumber={lastMatchFound ? currentNumber : null}
+          drawnNumbers={drawnNumbers}
+          onCellTap={onCellTap}
         />
       )}
 

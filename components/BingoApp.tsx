@@ -7,7 +7,6 @@ import {
   createInitialGameState,
   drawNextNumber,
   generateBingoCard,
-  isNumberOnCard,
   markNumber,
   checkBingo,
   shuffle,
@@ -53,55 +52,73 @@ export default function BingoApp() {
 
   function handleDraw() {
     if (!gameState) return;
-
     const next = drawNextNumber(gameState);
 
-    // Attach math problem in calculation mode
     if (settings.mode === 'calculation' && next.currentNumber !== null) {
       next.currentProblem = generateProblem(next.currentNumber, settings.operators);
     }
 
-    // Input mode: pause here and wait for the player's answer
+    // Input mode: pause and wait for the player's typed answer
     if (settings.mode === 'calculation' && settings.answerMode === 'input') {
       setGameState({ ...next, awaitingAnswer: true, lastMatchFound: null, lastAnswerWrong: false });
       return;
     }
 
-    // Standard / reveal mode: process the card immediately
-    setGameState(processCardMatch(next, settings, stats, playerName, setStats, setScreen));
+    setGameState({ ...next, lastMatchFound: null, lastAnswerWrong: false });
   }
 
-  /** Called by NumberDisplay when the player submits an answer in input mode */
+  /** Called when the player submits a typed answer in calculation+input mode */
   function handleAnswerSubmit(submitted: number) {
-    if (!gameState || !gameState.currentNumber || !gameState.currentProblem) return;
+    if (!gameState?.currentProblem || !gameState.currentNumber) return;
 
     const correct = submitted === gameState.currentProblem.answer;
 
     if (!correct) {
-      // Wrong answer: recycle the number, clear display
+      // Wrong: recycle the number, player cannot open that card cell
       setGameState({
         ...gameState,
         remainingNumbers: shuffle([...gameState.remainingNumbers, gameState.currentNumber]),
-        drawnNumbers: gameState.drawnNumbers.slice(0, -1), // undo the draw from history
+        drawnNumbers: gameState.drawnNumbers.slice(0, -1),
         currentNumber: null,
         currentProblem: null,
         awaitingAnswer: false,
-        lastMatchFound: false,
+        lastMatchFound: null,
         lastAnswerWrong: true,
       });
       return;
     }
 
-    // Correct answer: proceed with card matching
-    const processed = processCardMatch(
-      { ...gameState, awaitingAnswer: false, lastAnswerWrong: false },
-      settings,
-      stats,
-      playerName,
-      setStats,
-      setScreen
-    );
-    setGameState(processed);
+    // Correct: mark as answered, player can now tap the cell on their card
+    setGameState({ ...gameState, awaitingAnswer: false, lastAnswerWrong: false });
+  }
+
+  /** Called when the player taps a cell on their web card */
+  function handleCellTap(row: number, col: number) {
+    if (!gameState?.bingoCard) return;
+    const cell = gameState.bingoCard.cells[row][col];
+    if (cell === 'FREE' || gameState.bingoCard.marked[row][col]) return;
+    // Only allow tapping cells whose number has already been drawn
+    if (!gameState.drawnNumbers.includes(cell as number)) return;
+
+    const updatedCard = markNumber(gameState.bingoCard, cell as number);
+    const bingo = checkBingo(updatedCard);
+    const next: GameState = { ...gameState, bingoCard: updatedCard, isGameOver: bingo };
+
+    if (bingo) {
+      const base = stats ?? createEmptyStats(playerName);
+      const updated: PlayerStats = {
+        ...base,
+        wins: base.wins + 1,
+        gamesPlayed: base.gamesPlayed + 1,
+      };
+      saveStats(updated);
+      setStats(updated);
+      setGameState(next);
+      setScreen('result');
+      return;
+    }
+
+    setGameState(next);
   }
 
   function handleFinish() {
@@ -151,6 +168,7 @@ export default function BingoApp() {
           settings={settings}
           onDraw={handleDraw}
           onAnswerSubmit={handleAnswerSubmit}
+          onCellTap={handleCellTap}
           onFinish={handleFinish}
           onReset={handlePlayAgain}
         />
@@ -167,54 +185,4 @@ export default function BingoApp() {
       )}
     </main>
   );
-}
-
-// ─── Helper: card matching logic (shared between draw and answer-submit) ────
-
-function processCardMatch(
-  state: GameState,
-  settings: GameSettings,
-  stats: PlayerStats | null,
-  playerName: string,
-  setStats: (s: PlayerStats) => void,
-  setScreen: (s: AppScreen) => void
-): GameState {
-  if (settings.cardMode !== 'web' || !state.currentNumber || !state.bingoCard) {
-    return { ...state, lastMatchFound: null, lastAnswerWrong: false };
-  }
-
-  const n = state.currentNumber;
-  const matched = isNumberOnCard(state.bingoCard, n);
-
-  if (matched) {
-    const updatedCard = markNumber(state.bingoCard, n);
-    const bingo = checkBingo(updatedCard);
-    const next: GameState = {
-      ...state,
-      bingoCard: updatedCard,
-      lastMatchFound: true,
-      lastAnswerWrong: false,
-      isGameOver: bingo,
-    };
-    if (bingo) {
-      const base = stats ?? createEmptyStats(playerName);
-      const updated: PlayerStats = {
-        ...base,
-        wins: base.wins + 1,
-        gamesPlayed: base.gamesPlayed + 1,
-      };
-      saveStats(updated);
-      setStats(updated);
-      setScreen('result');
-    }
-    return next;
-  }
-
-  // Number not on card: recycle
-  return {
-    ...state,
-    remainingNumbers: shuffle([...state.remainingNumbers, n]),
-    lastMatchFound: false,
-    lastAnswerWrong: false,
-  };
 }
