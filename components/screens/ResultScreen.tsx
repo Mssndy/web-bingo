@@ -8,6 +8,8 @@ import Button from '@/components/ui/Button';
 interface Props {
   playerName: string;
   stats: PlayerStats;
+  /** true = web card mode → bingo was auto-detected, always a win */
+  isBingoAuto: boolean;
   onRecordWin: () => void;
   onRecordLoss: () => void;
   onPlayAgain: () => void;
@@ -16,11 +18,20 @@ interface Props {
 export default function ResultScreen({
   playerName,
   stats,
+  isBingoAuto,
   onRecordWin,
   onRecordLoss,
   onPlayAgain,
 }: Props) {
-  const [recorded, setRecorded] = useState<'win' | 'loss' | null>(null);
+  const [recorded, setRecorded] = useState<'win' | 'loss' | null>(
+    // In web card mode the bingo is auto-confirmed → immediately record as win
+    isBingoAuto ? 'win' : null
+  );
+
+  // Auto-record win for web card mode on first render
+  if (isBingoAuto && recorded === 'win' && stats.gamesPlayed === 0) {
+    // stats will be updated by parent before this renders; no action needed here
+  }
 
   function handleWin() {
     if (recorded) return;
@@ -39,19 +50,24 @@ export default function ResultScreen({
       {/* Title */}
       <div className="text-center">
         <div className="text-6xl mb-2 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]">
-          {recorded === 'win' ? '🏆' : recorded === 'loss' ? '😢' : '🎯'}
+          {recorded === 'loss' ? '😢' : '🏆'}
         </div>
         <h2 className="text-3xl font-black text-[var(--color-bingo-pink)]">
-          {recorded === 'win'
+          {isBingoAuto
+            ? 'やったね！ビンゴ！'
+            : recorded === 'win'
             ? 'やったね！ビンゴ！'
             : recorded === 'loss'
             ? 'ざんねん…またがんばろう！'
             : 'どうだった？'}
         </h2>
+        {isBingoAuto && (
+          <p className="text-sm text-gray-400 mt-1">カードが自動でビンゴを検出したよ！</p>
+        )}
       </div>
 
-      {/* Win / Loss buttons */}
-      {!recorded && (
+      {/* Win / Loss buttons — paper mode only */}
+      {!isBingoAuto && !recorded && (
         <div className="flex gap-4 w-full max-w-xs">
           <button
             onClick={handleWin}

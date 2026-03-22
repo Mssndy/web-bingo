@@ -1,6 +1,6 @@
 'use client';
 
-import type { GameSettings, MaxNumber } from '@/lib/types';
+import type { CardMode, GameSettings, MaxNumber } from '@/lib/types';
 import Button from '@/components/ui/Button';
 import OperatorPicker from '@/components/game/OperatorPicker';
 
@@ -13,9 +13,14 @@ interface Props {
 }
 
 const MAX_NUMBER_OPTIONS: { value: MaxNumber; label: string }[] = [
-  { value: 30,  label: '1〜30' },
-  { value: 50,  label: '1〜50' },
-  { value: 75,  label: '1〜75' },
+  { value: 30, label: '1〜30' },
+  { value: 50, label: '1〜50' },
+  { value: 75, label: '1〜75' },
+];
+
+const CARD_MODE_OPTIONS: { value: CardMode; emoji: string; label: string; desc: string }[] = [
+  { value: 'paper', emoji: '📄', label: 'かみカード', desc: '手元の紙で遊ぶ' },
+  { value: 'web',   emoji: '📱', label: 'Webカード',  desc: '画面にカードを表示' },
 ];
 
 export default function SettingsScreen({
@@ -35,9 +40,36 @@ export default function SettingsScreen({
         </p>
       </div>
 
-      {/* Mode selector */}
+      {/* Card mode */}
       <section>
-        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">モード</h2>
+        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">カードのしゅるい</h2>
+        <div className="flex gap-3">
+          {CARD_MODE_OPTIONS.map(({ value, emoji, label, desc }) => (
+            <button
+              key={value}
+              onClick={() => onSettingsChange({ ...settings, cardMode: value })}
+              className={`
+                flex-1 py-4 px-3 rounded-2xl border-4 transition-all active:scale-95 text-left
+                ${settings.cardMode === value
+                  ? 'bg-[var(--color-bingo-yellow)] border-[var(--color-bingo-orange)] shadow-md'
+                  : 'bg-white border-gray-200'}
+              `}
+            >
+              <p className="text-2xl">{emoji}</p>
+              <p className={`text-base font-black mt-1 ${settings.cardMode === value ? 'text-gray-800' : 'text-gray-400'}`}>
+                {label}
+              </p>
+              <p className={`text-xs mt-0.5 ${settings.cardMode === value ? 'text-gray-600' : 'text-gray-300'}`}>
+                {desc}
+              </p>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      {/* Game mode */}
+      <section>
+        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">ゲームモード</h2>
         <div className="flex gap-3">
           {(['standard', 'calculation'] as const).map((m) => (
             <button
@@ -46,7 +78,7 @@ export default function SettingsScreen({
               className={`
                 flex-1 py-4 rounded-2xl text-lg font-black border-4 transition-all active:scale-95
                 ${settings.mode === m
-                  ? 'bg-[var(--color-bingo-yellow)] border-[var(--color-bingo-orange)] text-gray-800 shadow-md'
+                  ? 'bg-[var(--color-bingo-blue)] border-[var(--color-bingo-blue)] text-white shadow-md'
                   : 'bg-white border-gray-200 text-gray-400'}
               `}
             >
@@ -78,7 +110,7 @@ export default function SettingsScreen({
               className={`
                 flex-1 py-3 rounded-2xl text-base font-black border-4 transition-all active:scale-95
                 ${settings.maxNumber === value
-                  ? 'bg-[var(--color-bingo-blue)] border-[var(--color-bingo-blue)] text-white shadow-md'
+                  ? 'bg-[var(--color-bingo-pink)] border-[var(--color-bingo-pink)] text-white shadow-md'
                   : 'bg-white border-gray-200 text-gray-400'}
               `}
             >

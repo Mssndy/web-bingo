@@ -2,9 +2,17 @@ interface Props {
   onDraw: () => void;
   disabled: boolean;
   remaining: number;
+  label?: string;
+  unit?: string;
 }
 
-export default function DrawButton({ onDraw, disabled, remaining }: Props) {
+export default function DrawButton({
+  onDraw,
+  disabled,
+  remaining,
+  label = 'のこり',
+  unit = '個',
+}: Props) {
   return (
     <div className="flex flex-col items-center gap-2">
       <button
@@ -15,7 +23,7 @@ export default function DrawButton({ onDraw, disabled, remaining }: Props) {
         {disabled ? '🎉 おわり！' : '🎲 つぎを ひく'}
       </button>
       <p className="text-sm text-gray-400">
-        のこり <span className="font-black text-gray-600">{remaining}</span> 個
+        {label} <span className="font-black text-gray-600">{remaining}</span> {unit}
       </p>
     </div>
   );
