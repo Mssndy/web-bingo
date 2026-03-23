@@ -6,6 +6,7 @@ import DrawnHistory from '@/components/game/DrawnHistory';
 import DrawButton from '@/components/game/DrawButton';
 import BingoCardDisplay from '@/components/game/BingoCardDisplay';
 import Button from '@/components/ui/Button';
+import ElapsedTimer from '@/components/ui/ElapsedTimer';
 
 interface Props {
   playerName: string;
@@ -15,7 +16,7 @@ interface Props {
   onAnswerSubmit: (answer: number) => void;
   onCellTap: (row: number, col: number) => void;
   onFinish: () => void;
-  onReset: () => void;
+  onHome: () => void;
 }
 
 export default function GameScreen({
@@ -26,7 +27,7 @@ export default function GameScreen({
   onAnswerSubmit,
   onCellTap,
   onFinish,
-  onReset,
+  onHome,
 }: Props) {
   const {
     drawnNumbers,
@@ -39,14 +40,12 @@ export default function GameScreen({
     isGameOver,
   } = gameState;
 
-  const isWebCard = settings.cardMode === 'web';
+  const isWebCard   = settings.cardMode === 'web';
   const isInputMode = settings.mode === 'calculation' && settings.answerMode === 'input';
 
-  // True right after a correct answer in input mode, before the next draw
   const answeredCorrectly =
     isInputMode && !awaitingAnswer && currentNumber !== null && !lastAnswerWrong;
 
-  // For web card: check whether the drawn number actually appears on the card
   const numberOnCard =
     answeredCorrectly && bingoCard
       ? bingoCard.cells.flat().some((c) => c === currentNumber)
@@ -57,17 +56,24 @@ export default function GameScreen({
     : 0;
 
   return (
-    <div className="flex flex-col gap-4 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
+
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <p className="text-base font-bold text-gray-500">
-          <span className="text-[var(--color-bingo-pink)] font-black">{playerName}</span>
-          ちゃん、がんばれ！
-        </p>
-        <button onClick={onReset} className="text-xs text-gray-400 underline">
-          やりなおす
+      <div className="flex items-center justify-between gap-2">
+        <button
+          onClick={onHome}
+          className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform shrink-0"
+        >
+          🏠 ホーム
         </button>
+        <ElapsedTimer />
       </div>
+
+      {/* Greeting */}
+      <p className="text-center text-base font-bold text-gray-500">
+        <span className="font-black text-[var(--color-bingo-pink)]">{playerName}</span>
+        ちゃん、がんばれ！🔥
+      </p>
 
       {/* Number / problem display */}
       <NumberDisplay
@@ -80,7 +86,7 @@ export default function GameScreen({
         onAnswer={isInputMode && awaitingAnswer ? onAnswerSubmit : undefined}
       />
 
-      {/* Correct-answer guidance (input mode only) */}
+      {/* Correct-answer guidance (input mode) */}
       {answeredCorrectly && (
         isWebCard ? (
           numberOnCard ? (
@@ -108,7 +114,7 @@ export default function GameScreen({
         )
       )}
 
-      {/* Wrong-answer feedback (input mode only) */}
+      {/* Wrong-answer feedback (input mode) */}
       {lastAnswerWrong && (
         <div
           key={drawnNumbers.length}
@@ -127,7 +133,7 @@ export default function GameScreen({
         unit={isWebCard ? 'マス' : '個'}
       />
 
-      {/* Manual "Bingo!" button — paper card mode only */}
+      {/* Manual Bingo button — paper only */}
       {!isWebCard && (
         <Button
           variant="secondary"
@@ -140,7 +146,7 @@ export default function GameScreen({
         </Button>
       )}
 
-      {/* Web card with tap-to-open */}
+      {/* Web card */}
       {isWebCard && bingoCard && (
         <BingoCardDisplay
           card={bingoCard}

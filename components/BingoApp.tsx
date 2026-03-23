@@ -243,7 +243,7 @@ export default function BingoApp() {
           onAnswerSubmit={handleAnswerSubmit}
           onCellTap={handleCellTap}
           onFinish={handleFinish}
-          onReset={handlePlayAgain}
+          onHome={handleBackToName}
         />
       )}
       {screen === 'result' && (
@@ -269,7 +269,7 @@ export default function BingoApp() {
         <PracticeGameScreen
           playerName={playerName}
           settings={practiceSettings}
-          onBack={() => setScreen('practice-settings')}
+          onHome={handleBackToName}
         />
       )}
     </main>

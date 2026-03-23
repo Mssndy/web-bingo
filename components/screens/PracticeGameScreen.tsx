@@ -5,40 +5,60 @@ import type { MathProblem, PracticeSettings } from '@/lib/types';
 import { generateProblem } from '@/lib/math-problems';
 import { getBestStreak, saveBestStreak } from '@/lib/storage';
 import { playCorrect, playWrong, playNewBest } from '@/lib/sounds';
+import ElapsedTimer from '@/components/ui/ElapsedTimer';
 
 interface Props {
   playerName: string;
   settings: PracticeSettings;
-  onBack: () => void;
+  onHome: () => void;
 }
 
 function randomNumber(max: number): number {
   return Math.floor(Math.random() * max) + 1;
 }
 
-export default function PracticeGameScreen({ playerName, settings, onBack }: Props) {
-  const [problem, setProblem] = useState<MathProblem | null>(null);
+const AUTO_ADVANCE_SECS = 3;
+
+export default function PracticeGameScreen({ playerName, settings, onHome }: Props) {
+  const [problem, setProblem]       = useState<MathProblem | null>(null);
   const [inputValue, setInputValue] = useState('');
-  const [feedback, setFeedback] = useState<'good' | 'newbest' | 'wrong' | null>(null);
-  const [streak, setStreak] = useState(0);
+  const [feedback, setFeedback]     = useState<'good' | 'newbest' | 'wrong' | null>(null);
+  const [streak, setStreak]         = useState(0);
   const [bestStreak, setBestStreak] = useState(0);
+  const [countdown, setCountdown]   = useState<number | null>(null);
 
   const nextProblem = useCallback(() => {
     const n = randomNumber(settings.maxNumber);
     setProblem(generateProblem(n, settings.operators));
     setInputValue('');
     setFeedback(null);
+    setCountdown(null);
   }, [settings]);
 
+  // Init
   useEffect(() => {
     setBestStreak(getBestStreak(playerName));
     nextProblem();
   }, [playerName, nextProblem]);
 
+  // Start countdown after a correct answer
+  useEffect(() => {
+    if (feedback === 'good' || feedback === 'newbest') {
+      setCountdown(AUTO_ADVANCE_SECS);
+    }
+  }, [feedback]);
+
+  // Tick countdown
+  useEffect(() => {
+    if (countdown === null) return;
+    if (countdown === 0) { nextProblem(); return; }
+    const t = setTimeout(() => setCountdown((c) => (c !== null ? c - 1 : null)), 1000);
+    return () => clearTimeout(t);
+  }, [countdown, nextProblem]);
+
   function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (!problem || inputValue === '') return;
-
     const submitted = parseInt(inputValue, 10);
     if (isNaN(submitted)) return;
 
@@ -62,25 +82,31 @@ export default function PracticeGameScreen({ playerName, settings, onBack }: Pro
   }
 
   return (
-    <div className="flex flex-col gap-6 px-6 py-8 animate-[fade-in_0.3s_ease_both]">
-      {/* Header */}
+    <div className="flex flex-col gap-5 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+
+      {/* Header row */}
       <div className="flex items-center justify-between">
         <button
-          onClick={onBack}
-          className="text-sm font-bold text-gray-400 active:scale-95 transition-transform"
+          onClick={onHome}
+          className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform"
         >
-          ← やめる
+          🏠 ホーム
         </button>
+        <ElapsedTimer />
         <div className="text-right">
           <p className="text-xs text-gray-400">ベスト</p>
-          <p className="text-lg font-black text-[var(--color-bingo-orange)]">
-            🏅 {bestStreak}もん
-          </p>
+          <p className="text-base font-black text-[var(--color-bingo-orange)]">🏅 {bestStreak}もん</p>
         </div>
       </div>
 
+      {/* Greeting */}
+      <p className="text-center text-base font-bold text-gray-500">
+        <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
+        ちゃん、れんぞく正解をめざそう！
+      </p>
+
       {/* Streak */}
-      <div className="text-center bg-white rounded-2xl border-4 border-[var(--color-bingo-purple)] py-4 shadow-md">
+      <div className="text-center bg-white rounded-2xl border-4 border-[var(--color-bingo-purple)] py-3 shadow-md">
         <p className="text-sm font-bold text-[var(--color-bingo-purple)] mb-1">れんぞく正解</p>
         <p
           key={streak}
@@ -91,10 +117,10 @@ export default function PracticeGameScreen({ playerName, settings, onBack }: Pro
         <p className="text-sm text-gray-400 mt-1">もん</p>
       </div>
 
-      {/* Problem card */}
+      {/* Problem */}
       {problem && (
-        <div className="text-center bg-[var(--color-bingo-yellow)] rounded-3xl border-4 border-[var(--color-bingo-orange)] py-8 px-6 shadow-lg">
-          <p className="text-sm font-bold text-gray-500 mb-3">つぎの問題</p>
+        <div className="text-center bg-[var(--color-bingo-yellow)] rounded-3xl border-4 border-[var(--color-bingo-orange)] py-7 px-6 shadow-lg">
+          <p className="text-sm font-bold text-gray-500 mb-2">もんだい</p>
           <p className="text-5xl font-black text-gray-800 tracking-wide">
             {problem.expression} ＝ ？
           </p>
@@ -106,7 +132,7 @@ export default function PracticeGameScreen({ playerName, settings, onBack }: Pro
         <div
           key={feedback + streak}
           className={`
-            text-center rounded-2xl py-5 border-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
+            text-center rounded-2xl py-4 border-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]
             ${feedback === 'wrong'
               ? 'bg-[var(--color-bingo-blue)] border-[var(--color-bingo-blue)]'
               : feedback === 'newbest'
@@ -117,22 +143,27 @@ export default function PracticeGameScreen({ playerName, settings, onBack }: Pro
           {feedback === 'newbest' ? (
             <>
               <p className="text-4xl font-black text-white">NEW BEST！ 🌟</p>
-              <p className="text-lg text-white mt-1 opacity-90">{streak}もん れんぞく！すごい！</p>
+              <p className="text-lg text-white mt-1 opacity-90">{streak}もん れんぞく！さいこう！</p>
             </>
           ) : feedback === 'good' ? (
             <p className="text-4xl font-black text-white">GOOD！ 🎉</p>
           ) : (
+            /* Wrong: show correct answer clearly */
             <>
-              <p className="text-4xl font-black text-white">おしい！ 💪</p>
-              <p className="text-lg text-white mt-1 opacity-90">
-                こたえは <span className="font-black">{problem?.answer}</span> だよ、もう一度！
-              </p>
+              <p className="text-3xl font-black text-white mb-2">おしい！ 💪</p>
+              <div className="bg-white rounded-2xl py-3 px-6 mx-4">
+                <p className="text-xs font-bold text-gray-400 mb-1">せいかいは</p>
+                <p className="text-5xl font-black text-[var(--color-bingo-blue)]">
+                  {problem?.answer}
+                </p>
+                <p className="text-xs font-bold text-gray-400 mt-1">だよ！</p>
+              </div>
             </>
           )}
         </div>
       )}
 
-      {/* Input or Next button */}
+      {/* Input / Next button */}
       {!feedback ? (
         <form onSubmit={handleSubmit} className="flex flex-col gap-3">
           <input
@@ -153,12 +184,22 @@ export default function PracticeGameScreen({ playerName, settings, onBack }: Pro
             こたえる！
           </button>
         </form>
-      ) : (
+      ) : feedback === 'wrong' ? (
         <button
           onClick={nextProblem}
           className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-blue)] shadow-lg active:scale-95 transition-transform"
         >
           つぎの問題 →
+        </button>
+      ) : (
+        /* Correct: show countdown button */
+        <button
+          onClick={nextProblem}
+          className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-green)] shadow-lg active:scale-95 transition-transform"
+        >
+          つぎの問題 →{countdown !== null && countdown > 0 && (
+            <span className="ml-2 text-xl opacity-80">({countdown})</span>
+          )}
         </button>
       )}
     </div>
