@@ -26,20 +26,31 @@ export default function PracticeSettingsScreen({
   onBack,
 }: Props) {
   return (
-    <div className="flex flex-col gap-6 px-6 py-8 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-5 px-6 py-6 animate-[fade-in_0.3s_ease_both]">
+
       {/* Header */}
       <div className="text-center">
-        <div className="text-5xl mb-2">🧮</div>
-        <h1 className="text-3xl font-black text-[var(--color-bingo-purple)]">けいさん練習</h1>
-        <p className="text-lg text-gray-500 mt-1">
-          <span className="font-black text-[var(--color-bingo-pink)]">{playerName}</span>
-          ちゃん、れんぞく正解に挑戦！
+        <p className="text-lg text-gray-500">
+          <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
+          ちゃん、よういはいい？
         </p>
+      </div>
+
+      {/* ── START button — top and prominent ── */}
+      <Button size="lg" className="w-full" onClick={onStart}>
+        🚀 スタート！
+      </Button>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-gray-200" />
+        <p className="text-xs font-bold text-gray-400 tracking-widest">せってい</p>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
 
       {/* Level */}
       <section>
-        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">レベル</h2>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">レベル</h2>
         <div className="flex gap-3">
           {LEVEL_OPTIONS.map(({ value, label, desc }) => (
             <button
@@ -65,22 +76,17 @@ export default function PracticeSettingsScreen({
 
       {/* Operators */}
       <section>
-        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">けいさんのしゅるい</h2>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">けいさんのしゅるい</h2>
         <OperatorPicker
           selected={settings.operators}
           onChange={(ops: MathOperator[]) => onSettingsChange({ ...settings, operators: ops })}
         />
       </section>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-3 mt-2">
-        <Button size="lg" className="w-full" onClick={onStart}>
-          🚀 スタート！
-        </Button>
-        <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
-          ← もどる
-        </Button>
-      </div>
+      {/* Back */}
+      <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
+        ← もどる
+      </Button>
     </div>
   );
 }
