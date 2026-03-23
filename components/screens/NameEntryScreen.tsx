@@ -6,10 +6,11 @@ import { winRate } from '@/lib/storage';
 
 interface Props {
   onStart: (name: string) => void;
+  onPractice: (name: string) => void;
   stats: PlayerStats | null;
 }
 
-export default function NameEntryScreen({ onStart, stats }: Props) {
+export default function NameEntryScreen({ onStart, onPractice, stats }: Props) {
   const [name, setName] = useState(stats?.name ?? '');
 
   function handleSubmit(e: React.FormEvent) {
@@ -45,6 +46,14 @@ export default function NameEntryScreen({ onStart, stats }: Props) {
           className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-pink)] shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
         >
           はじめる！
+        </button>
+        <button
+          type="button"
+          disabled={!name.trim()}
+          onClick={() => { const t = name.trim(); if (t) onPractice(t); }}
+          className="w-full text-xl font-black text-white rounded-2xl py-4 bg-[var(--color-bingo-purple)] shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+        >
+          🧮 練習する
         </button>
       </form>
 

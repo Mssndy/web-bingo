@@ -42,6 +42,16 @@ export default function GameScreen({
   const isWebCard = settings.cardMode === 'web';
   const isInputMode = settings.mode === 'calculation' && settings.answerMode === 'input';
 
+  // True right after a correct answer in input mode, before the next draw
+  const answeredCorrectly =
+    isInputMode && !awaitingAnswer && currentNumber !== null && !lastAnswerWrong;
+
+  // For web card: check whether the drawn number actually appears on the card
+  const numberOnCard =
+    answeredCorrectly && bingoCard
+      ? bingoCard.cells.flat().some((c) => c === currentNumber)
+      : false;
+
   const unmarkedCount = bingoCard
     ? bingoCard.marked.flat().filter((m) => !m).length
     : 0;
@@ -66,16 +76,45 @@ export default function GameScreen({
         problem={currentProblem}
         mode={settings.mode}
         answerMode={settings.answerMode}
-        onAnswer={isInputMode ? onAnswerSubmit : undefined}
+        awaitingAnswer={isInputMode ? awaitingAnswer : undefined}
+        onAnswer={isInputMode && awaitingAnswer ? onAnswerSubmit : undefined}
       />
+
+      {/* Correct-answer guidance (input mode only) */}
+      {answeredCorrectly && (
+        isWebCard ? (
+          numberOnCard ? (
+            <div
+              key={`guide-${currentNumber}`}
+              className="text-center font-black py-3 px-4 rounded-2xl bg-[var(--color-bingo-yellow)] border-4 border-[var(--color-bingo-orange)] text-gray-800 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+            >
+              👆 カードに <span className="text-[var(--color-bingo-pink)]">{currentNumber}</span> があるよ！タップして穴を開けよう！
+            </div>
+          ) : (
+            <div
+              key={`guide-${currentNumber}`}
+              className="text-center font-black py-3 px-4 rounded-2xl bg-white border-4 border-[var(--color-bingo-blue)] text-gray-700 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+            >
+              ✨ 計算はバッチリ！カードに {currentNumber} はないよ。次へ進もう！
+            </div>
+          )
+        ) : (
+          <div
+            key={`guide-${currentNumber}`}
+            className="text-center font-black py-3 px-4 rounded-2xl bg-[var(--color-bingo-yellow)] border-4 border-[var(--color-bingo-orange)] text-gray-800 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+          >
+            📋 カードに <span className="text-[var(--color-bingo-pink)]">{currentNumber}</span> があったら〇をつけよう！
+          </div>
+        )
+      )}
 
       {/* Wrong-answer feedback (input mode only) */}
       {lastAnswerWrong && (
         <div
           key={drawnNumbers.length}
-          className="text-center text-base font-black py-2 rounded-2xl bg-gray-100 text-gray-500 animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+          className="text-center text-base font-black py-3 rounded-2xl bg-[var(--color-bingo-blue)] text-white animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
         >
-          ✗ まちがい！もう一度といてね…
+          💪 おしい！もう一度チャレンジ！
         </div>
       )}
 

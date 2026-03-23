@@ -32,3 +32,20 @@ export function winRate(stats: PlayerStats): number {
   if (stats.gamesPlayed === 0) return 0;
   return Math.round((stats.wins / stats.gamesPlayed) * 100);
 }
+
+const STREAK_KEY_PREFIX = 'bingo_best_streak_';
+
+export function getBestStreak(playerName: string): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(`${STREAK_KEY_PREFIX}${playerName}`);
+    return raw ? parseInt(raw, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveBestStreak(playerName: string, streak: number): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`${STREAK_KEY_PREFIX}${playerName}`, String(streak));
+}

@@ -3,7 +3,17 @@
     "allow": [
       "Bash(git commit:*)",
       "Bash(gh repo:*)",
-      "Bash(npx vercel:*)"
+      "Bash(npx vercel:*)",
+      "Bash(nvm ls:*)",
+      "Read(//usr/local/nvm/versions/**)",
+      "Bash(NVM_DIR=\"$HOME/.nvm\")",
+      "Bash(source \"$NVM_DIR/nvm.sh\")",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.1/bin/node --version)",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.1/bin/npm run:*)",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node --version)",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/npm run:*)",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node /home/mssndy/dev/web-bingo/node_modules/next/dist/bin/next build)",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node /home/mssndy/dev/web-bingo/node_modules/typescript/bin/tsc --noEmit)"
     ]
   }
 }

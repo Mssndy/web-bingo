@@ -8,10 +8,12 @@ interface Props {
   problem: MathProblem | null;
   mode: GameSettings['mode'];
   answerMode: GameSettings['answerMode'];
+  /** input mode: true = waiting for answer, false = already answered correctly */
+  awaitingAnswer?: boolean;
   onAnswer?: (answer: number) => void;
 }
 
-export default function NumberDisplay({ number, problem, mode, answerMode, onAnswer }: Props) {
+export default function NumberDisplay({ number, problem, mode, answerMode, awaitingAnswer, onAnswer }: Props) {
   const [revealed, setRevealed] = useState(false);
   const [inputValue, setInputValue] = useState('');
   const inputRef = useRef<HTMLInputElement>(null);
@@ -26,6 +28,19 @@ export default function NumberDisplay({ number, problem, mode, answerMode, onAns
 
   // ── Calculation + input mode ────────────────────────────────────────────
   if (mode === 'calculation' && problem && answerMode === 'input') {
+    // After a correct answer: show the revealed answer with celebration
+    if (awaitingAnswer === false) {
+      return (
+        <div className="flex flex-col items-center justify-center gap-2 rounded-3xl bg-[var(--color-bingo-green)] border-4 border-[var(--color-bingo-green)] shadow-lg px-4 py-5 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]">
+          <p className="text-2xl font-black text-white">🎉 GOOD！正解！</p>
+          <p className="text-3xl font-black text-white opacity-90">
+            {problem.expression} ＝{' '}
+            <span className="text-4xl text-[var(--color-bingo-yellow)]">{problem.answer}</span>
+          </p>
+        </div>
+      );
+    }
+
     function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
       e.preventDefault();
       const n = parseInt(inputValue, 10);

@@ -1,4 +1,9 @@
-export type AppScreen = 'name-entry' | 'settings' | 'game' | 'result';
+export type AppScreen = 'name-entry' | 'settings' | 'game' | 'result' | 'practice-settings' | 'practice';
+
+export interface PracticeSettings {
+  operators: MathOperator[];
+  maxNumber: MaxNumber;
+}
 export type MathOperator = '+' | '-' | '×' | '÷';
 export type MaxNumber = 30 | 50 | 75;
 export type CardMode = 'paper' | 'web';

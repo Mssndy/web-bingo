@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import type { AppScreen, GameSettings, GameState, PlayerStats } from '@/lib/types';
+import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings } from '@/lib/types';
 import { loadStatsForPlayer, saveStats, createEmptyStats } from '@/lib/storage';
 import {
   createInitialGameState,
@@ -12,11 +12,14 @@ import {
   shuffle,
 } from '@/lib/bingo';
 import { generateProblem } from '@/lib/math-problems';
+import { playCorrect, playWrong, playDraw, playBingo } from '@/lib/sounds';
 
 import NameEntryScreen from '@/components/screens/NameEntryScreen';
 import SettingsScreen from '@/components/screens/SettingsScreen';
 import GameScreen from '@/components/screens/GameScreen';
 import ResultScreen from '@/components/screens/ResultScreen';
+import PracticeSettingsScreen from '@/components/screens/PracticeSettingsScreen';
+import PracticeGameScreen from '@/components/screens/PracticeGameScreen';
 
 const DEFAULT_SETTINGS: GameSettings = {
   mode: 'standard',
@@ -32,6 +35,10 @@ export default function BingoApp() {
   const [stats, setStats] = useState<PlayerStats | null>(null);
   const [settings, setSettings] = useState<GameSettings>(DEFAULT_SETTINGS);
   const [gameState, setGameState] = useState<GameState | null>(null);
+  const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>({
+    operators: ['+', '-', '×', '÷'],
+    maxNumber: 30,
+  });
 
   useEffect(() => {
     if (!playerName) return;
@@ -52,6 +59,7 @@ export default function BingoApp() {
 
   function handleDraw() {
     if (!gameState) return;
+    playDraw();
     const next = drawNextNumber(gameState);
 
     if (settings.mode === 'calculation' && next.currentNumber !== null) {
@@ -74,6 +82,7 @@ export default function BingoApp() {
     const correct = submitted === gameState.currentProblem.answer;
 
     if (!correct) {
+      playWrong();
       // Wrong: recycle the number, player cannot open that card cell
       setGameState({
         ...gameState,
@@ -89,6 +98,7 @@ export default function BingoApp() {
     }
 
     // Correct: mark as answered, player can now tap the cell on their card
+    playCorrect();
     setGameState({ ...gameState, awaitingAnswer: false, lastAnswerWrong: false });
   }
 
@@ -105,6 +115,7 @@ export default function BingoApp() {
     const next: GameState = { ...gameState, bingoCard: updatedCard, isGameOver: bingo };
 
     if (bingo) {
+      playBingo();
       const base = stats ?? createEmptyStats(playerName);
       const updated: PlayerStats = {
         ...base,
@@ -147,10 +158,16 @@ export default function BingoApp() {
     setGameState(null);
   }
 
+  function handleGoToPractice(name: string) {
+    setPlayerName(name);
+    setStats(loadStatsForPlayer(name));
+    setScreen('practice-settings');
+  }
+
   return (
     <main className="max-w-lg mx-auto w-full">
       {screen === 'name-entry' && (
-        <NameEntryScreen onStart={handleStart} stats={stats} />
+        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} stats={stats} />
       )}
       {screen === 'settings' && (
         <SettingsScreen
@@ -181,6 +198,22 @@ export default function BingoApp() {
           onRecordWin={() => handleRecordResult(true)}
           onRecordLoss={() => handleRecordResult(false)}
           onPlayAgain={handlePlayAgain}
+        />
+      )}
+      {screen === 'practice-settings' && (
+        <PracticeSettingsScreen
+          playerName={playerName}
+          settings={practiceSettings}
+          onSettingsChange={setPracticeSettings}
+          onStart={() => setScreen('practice')}
+          onBack={() => setScreen('name-entry')}
+        />
+      )}
+      {screen === 'practice' && (
+        <PracticeGameScreen
+          playerName={playerName}
+          settings={practiceSettings}
+          onBack={() => setScreen('practice-settings')}
         />
       )}
     </main>
