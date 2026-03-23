@@ -22,11 +22,11 @@ import PracticeSettingsScreen from '@/components/screens/PracticeSettingsScreen'
 import PracticeGameScreen from '@/components/screens/PracticeGameScreen';
 
 const DEFAULT_SETTINGS: GameSettings = {
-  mode: 'standard',
-  answerMode: 'reveal',
+  mode: 'calculation',
+  answerMode: 'input',
   operators: ['+', '-'],
   maxNumber: 30,
-  cardMode: 'paper',
+  cardMode: 'web',
 };
 
 export default function BingoApp() {
