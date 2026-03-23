@@ -10,56 +10,99 @@ interface Props {
   stats: PlayerStats | null;
 }
 
-export default function NameEntryScreen({ onStart, onPractice, stats }: Props) {
-  const [name, setName] = useState(stats?.name ?? '');
+interface ModeCard {
+  id: string;
+  emoji: string;
+  label: string;
+  desc: string;
+  color: string;
+  bg: string;
+  onSelect: (name: string) => void;
+}
 
-  function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = name.trim();
-    if (trimmed) onStart(trimmed);
-  }
+export default function NameEntryScreen({ onStart, onPractice, stats }: Props) {
+  const [name, setName] = useState(stats?.name ?? 'かず');
+
+  const trimmed = name.trim();
+
+  const MODES: ModeCard[] = [
+    {
+      id: 'bingo',
+      emoji: '🎯',
+      label: 'BINGOモード',
+      desc: 'ビンゴカードで\nあそぼう！',
+      color: '#ff6b9d',
+      bg: '#fff0f6',
+      onSelect: onStart,
+    },
+    {
+      id: 'practice',
+      emoji: '🧮',
+      label: 'けいさんモード',
+      desc: 'けいさんに\nチャレンジ！',
+      color: '#cc5de8',
+      bg: '#faf0ff',
+      onSelect: onPractice,
+    },
+  ];
 
   return (
-    <div className="flex flex-col items-center gap-8 px-6 py-10 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col items-center gap-6 px-5 py-8 animate-[fade-in_0.3s_ease_both]">
+
       {/* Title */}
       <div className="text-center">
-        <div className="text-6xl mb-2">🎯</div>
-        <h1 className="text-4xl font-black text-[var(--color-bingo-pink)] drop-shadow-sm">
-          ビンゴ！
+        <div className="text-5xl mb-1">🌟</div>
+        <h1 className="text-3xl font-black text-[var(--color-bingo-pink)] drop-shadow-sm tracking-wide">
+          あそんで まなぼう！
         </h1>
-        <p className="text-lg text-gray-500 mt-1">なまえをいれてね</p>
       </div>
 
       {/* Name input */}
-      <form onSubmit={handleSubmit} className="w-full max-w-sm flex flex-col gap-4">
+      <div className="w-full max-w-sm flex flex-col gap-2">
+        <p className="text-center text-sm font-bold text-gray-400 tracking-wide">なまえをいれてね</p>
         <input
           type="text"
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="なまえ"
           maxLength={10}
-          className="w-full text-3xl font-bold text-center rounded-2xl border-4 border-[var(--color-bingo-blue)] px-4 py-4 outline-none focus:border-[var(--color-bingo-pink)] transition-colors bg-white shadow-sm"
+          className="w-full text-3xl font-bold text-center rounded-2xl border-4 border-[var(--color-bingo-blue)] px-4 py-3 outline-none focus:border-[var(--color-bingo-pink)] transition-colors bg-white shadow-sm"
         />
-        <button
-          type="submit"
-          disabled={!name.trim()}
-          className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-pink)] shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          はじめる！
-        </button>
-        <button
-          type="button"
-          disabled={!name.trim()}
-          onClick={() => { const t = name.trim(); if (t) onPractice(t); }}
-          className="w-full text-xl font-black text-white rounded-2xl py-4 bg-[var(--color-bingo-purple)] shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
-        >
-          🧮 練習する
-        </button>
-      </form>
+      </div>
+
+      {/* Mode tiles */}
+      <div className="w-full max-w-sm">
+        <p className="text-center text-sm font-bold text-gray-400 mb-3 tracking-wide">モードをえらんでね</p>
+        <div className="grid grid-cols-2 gap-3">
+          {MODES.map((mode) => (
+            <button
+              key={mode.id}
+              disabled={!trimmed}
+              onClick={() => trimmed && mode.onSelect(trimmed)}
+              style={{
+                borderColor: mode.color,
+                backgroundColor: trimmed ? mode.bg : '#f5f5f5',
+              }}
+              className="flex flex-col items-center justify-center gap-2 rounded-3xl border-4 py-6 px-3 shadow-md active:scale-95 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <span className="text-5xl leading-none">{mode.emoji}</span>
+              <span
+                className="text-sm font-black leading-tight text-center"
+                style={{ color: trimmed ? mode.color : '#aaa' }}
+              >
+                {mode.label}
+              </span>
+              <span className="text-xs text-gray-400 text-center whitespace-pre-line leading-snug">
+                {mode.desc}
+              </span>
+            </button>
+          ))}
+        </div>
+      </div>
 
       {/* Stats */}
       {stats && stats.gamesPlayed > 0 && (
-        <div className="w-full max-w-sm bg-white rounded-2xl shadow p-5 border-2 border-[var(--color-bingo-yellow)]">
+        <div className="w-full max-w-sm bg-white rounded-2xl shadow p-4 border-2 border-[var(--color-bingo-yellow)]">
           <p className="text-center text-sm text-gray-500 mb-3 font-bold">
             {stats.name} のきろく
           </p>
