@@ -31,7 +31,8 @@ export default function SettingsScreen({
   onBack,
 }: Props) {
   return (
-    <div className="flex flex-col gap-6 px-6 py-8 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-5 px-6 py-6 animate-[fade-in_0.3s_ease_both]">
+
       {/* Header */}
       <div className="text-center">
         <p className="text-lg text-gray-500">
@@ -40,9 +41,21 @@ export default function SettingsScreen({
         </p>
       </div>
 
+      {/* ── START button — top and prominent ── */}
+      <Button size="lg" className="w-full" onClick={onStartGame}>
+        🎯 スタート！
+      </Button>
+
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-gray-200" />
+        <p className="text-xs font-bold text-gray-400 tracking-widest">せってい</p>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+
       {/* Card mode */}
       <section>
-        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">カードのしゅるい</h2>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">カードのしゅるい</h2>
         <div className="flex gap-3">
           {CARD_MODE_OPTIONS.map(({ value, emoji, label, desc }) => (
             <button
@@ -69,7 +82,7 @@ export default function SettingsScreen({
 
       {/* Game mode */}
       <section>
-        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">ゲームモード</h2>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">ゲームモード</h2>
         <div className="flex gap-3">
           {(['standard', 'calculation'] as const).map((m) => (
             <button
@@ -92,7 +105,7 @@ export default function SettingsScreen({
       {settings.mode === 'calculation' && (
         <>
           <section className="animate-[fade-in_0.3s_ease_both]">
-            <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">こたえのいれかた</h2>
+            <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">こたえのいれかた</h2>
             <div className="flex gap-3">
               {([
                 { value: 'reveal' as AnswerMode, emoji: '👆', label: 'タップでみる', desc: '式をタップして答えを確認' },
@@ -121,7 +134,7 @@ export default function SettingsScreen({
           </section>
 
           <section className="animate-[fade-in_0.3s_ease_both]">
-            <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">けいさんのしゅるい</h2>
+            <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">けいさんのしゅるい</h2>
             <OperatorPicker
               selected={settings.operators}
               onChange={(ops) => onSettingsChange({ ...settings, operators: ops })}
@@ -132,7 +145,7 @@ export default function SettingsScreen({
 
       {/* Number range */}
       <section>
-        <h2 className="text-sm font-bold text-gray-400 mb-3 tracking-wide">すうじのはんい</h2>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">すうじのはんい</h2>
         <div className="flex gap-3">
           {MAX_NUMBER_OPTIONS.map(({ value, label }) => (
             <button
@@ -151,15 +164,10 @@ export default function SettingsScreen({
         </div>
       </section>
 
-      {/* Actions */}
-      <div className="flex flex-col gap-3 mt-2">
-        <Button size="lg" className="w-full" onClick={onStartGame}>
-          🎯 スタート！
-        </Button>
-        <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
-          ← もどる
-        </Button>
-      </div>
+      {/* Back */}
+      <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
+        ← もどる
+      </Button>
     </div>
   );
 }

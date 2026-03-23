@@ -56,6 +56,23 @@
   50%       { box-shadow: 0 0 16px var(--glow-color), 0 0 32px var(--glow-color); }
 }
 
+@keyframes confetti-fall {
+  0%   { transform: translateY(-60px) rotate(0deg)  scale(1);   opacity: 1; }
+  80%  { opacity: 1; }
+  100% { transform: translateY(110vh) rotate(720deg) scale(0.6); opacity: 0; }
+}
+
+@keyframes bingo-flash {
+  0%, 100% { transform: scale(1);    text-shadow: 0 0 20px rgba(255,217,61,0.8); }
+  50%       { transform: scale(1.08); text-shadow: 0 0 40px rgba(255,217,61,1), 0 0 80px rgba(255,107,157,0.6); }
+}
+
+@keyframes praise-pop {
+  0%   { transform: scale(0) rotate(-10deg); opacity: 0; }
+  70%  { transform: scale(1.1) rotate(2deg); opacity: 1; }
+  100% { transform: scale(1) rotate(0deg);   opacity: 1; }
+}
+
 body {
   background-color: var(--color-bingo-bg);
   font-family: var(--font-sans);
