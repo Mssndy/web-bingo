@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings, EasySettings } from '@/lib/types';
+import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings, EasySettings, CharGameSettings, CharPracticeSettings } from '@/lib/types';
 import { loadStatsForPlayer, saveStats, createEmptyStats } from '@/lib/storage';
 import {
   createInitialGameState,
@@ -22,6 +22,19 @@ import PracticeSettingsScreen from '@/components/screens/PracticeSettingsScreen'
 import PracticeGameScreen from '@/components/screens/PracticeGameScreen';
 import EasySettingsScreen from '@/components/screens/EasySettingsScreen';
 import EasyGameScreen from '@/components/screens/EasyGameScreen';
+import CharSettingsScreen from '@/components/screens/CharSettingsScreen';
+import CharGameScreen from '@/components/screens/CharGameScreen';
+import CharPracticeSettingsScreen from '@/components/screens/CharPracticeSettingsScreen';
+import CharPracticeGameScreen from '@/components/screens/CharPracticeGameScreen';
+import {
+  generateCharBingoCard,
+  createInitialCharGameState,
+  drawNextChar,
+  markChar,
+  checkCharBingo,
+  getCharSet,
+} from '@/lib/characters';
+import type { CharGameState } from '@/lib/characters';
 
 const DEFAULT_SETTINGS: GameSettings = {
   mode: 'calculation',
@@ -44,6 +57,17 @@ export default function BingoApp() {
   const [easySettings, setEasySettings] = useState<EasySettings>({
     operators: ['+', '-'],
   });
+  const [charSettings, setCharSettings] = useState<CharGameSettings>({
+    contentType: 'hiragana',
+    bingoSubMode: 'char-show',
+    cardMode: 'web',
+  });
+  const [charGameState, setCharGameState] = useState<CharGameState | null>(null);
+  const [charPracticeSettings, setCharPracticeSettings] = useState<CharPracticeSettings>({
+    contentType: 'hiragana',
+  });
+  // Tracks whether the result screen should show the auto-bingo celebration
+  const [resultIsAutoBingo, setResultIsAutoBingo] = useState(false);
 
   // Always-fresh refs to avoid stale closures in auto-draw timers
   const gameStateRef = useRef<GameState | null>(null);
@@ -178,6 +202,7 @@ export default function BingoApp() {
       saveStats(updated);
       setStats(updated);
       setGameState(next);
+      setResultIsAutoBingo(true);
       setScreen('result');
       return;
     }
@@ -192,6 +217,7 @@ export default function BingoApp() {
 
   function handleFinish() {
     clearAutoDraw();
+    setResultIsAutoBingo(false);
     setScreen('result');
   }
 
@@ -231,10 +257,59 @@ export default function BingoApp() {
     setScreen('easy-settings');
   }
 
+  function handleGoToChar(name: string) {
+    setPlayerName(name);
+    setStats(loadStatsForPlayer(name));
+    setScreen('char-settings');
+  }
+
+  function handleStartCharGame() {
+    const chars = getCharSet(charSettings.contentType);
+    const card = charSettings.cardMode === 'web' ? generateCharBingoCard(chars) : null;
+    setCharGameState(createInitialCharGameState(chars, card));
+    setScreen('char-game');
+  }
+
+  function handleCharDraw() {
+    if (!charGameState) return;
+    playDraw();
+    setCharGameState(drawNextChar(charGameState));
+  }
+
+  function handleCharCellTap(row: number, col: number) {
+    if (!charGameState?.bingoCard) return;
+    const cell = charGameState.bingoCard.cells[row][col];
+    if (cell === 'FREE' || charGameState.bingoCard.marked[row][col]) return;
+    if (!charGameState.drawnChars.includes(cell as string)) return;
+
+    const updatedCard = markChar(charGameState.bingoCard, cell as string);
+    const bingo = checkCharBingo(updatedCard);
+    const next: CharGameState = { ...charGameState, bingoCard: updatedCard, isGameOver: bingo };
+
+    if (bingo) {
+      playBingo();
+      const base = stats ?? createEmptyStats(playerName);
+      const updated: PlayerStats = { ...base, wins: base.wins + 1, gamesPlayed: base.gamesPlayed + 1 };
+      saveStats(updated);
+      setStats(updated);
+      setCharGameState(next);
+      setResultIsAutoBingo(true);
+      setScreen('result');
+      return;
+    }
+
+    setCharGameState(next);
+  }
+
+  function handleCharFinish() {
+    setResultIsAutoBingo(false);
+    setScreen('result');
+  }
+
   return (
     <main className="max-w-lg mx-auto w-full">
       {screen === 'name-entry' && (
-        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} onEasy={handleGoToEasy} stats={stats} />
+        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} onEasy={handleGoToEasy} onChar={handleGoToChar} stats={stats} />
       )}
       {screen === 'settings' && (
         <SettingsScreen
@@ -261,7 +336,7 @@ export default function BingoApp() {
         <ResultScreen
           playerName={playerName}
           stats={stats ?? createEmptyStats(playerName)}
-          isBingoAuto={settings.cardMode === 'web'}
+          isBingoAuto={resultIsAutoBingo}
           onRecordWin={() => handleRecordResult(true)}
           onRecordLoss={() => handleRecordResult(false)}
           onPlayAgain={handlePlayAgain}
@@ -296,6 +371,43 @@ export default function BingoApp() {
         <EasyGameScreen
           playerName={playerName}
           settings={easySettings}
+          onHome={handleBackToName}
+        />
+      )}
+      {screen === 'char-settings' && (
+        <CharSettingsScreen
+          playerName={playerName}
+          settings={charSettings}
+          onSettingsChange={setCharSettings}
+          onStartGame={handleStartCharGame}
+          onGoToPractice={() => setScreen('char-practice-settings')}
+          onBack={handleBackToName}
+        />
+      )}
+      {screen === 'char-game' && charGameState && (
+        <CharGameScreen
+          playerName={playerName}
+          gameState={charGameState}
+          settings={charSettings}
+          onDraw={handleCharDraw}
+          onCellTap={handleCharCellTap}
+          onFinish={handleCharFinish}
+          onHome={handleBackToName}
+        />
+      )}
+      {screen === 'char-practice-settings' && (
+        <CharPracticeSettingsScreen
+          playerName={playerName}
+          settings={charPracticeSettings}
+          onSettingsChange={setCharPracticeSettings}
+          onStart={() => setScreen('char-practice')}
+          onBack={() => setScreen('char-settings')}
+        />
+      )}
+      {screen === 'char-practice' && (
+        <CharPracticeGameScreen
+          playerName={playerName}
+          settings={charPracticeSettings}
           onHome={handleBackToName}
         />
       )}

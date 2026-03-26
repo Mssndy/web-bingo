@@ -9,6 +9,7 @@ interface Props {
   onStart: (name: string) => void;
   onPractice: (name: string) => void;
   onEasy: (name: string) => void;
+  onChar: (name: string) => void;
   stats: PlayerStats | null;
 }
 
@@ -23,7 +24,7 @@ interface ModeCard {
   onSelect: (name: string) => void;
 }
 
-export default function NameEntryScreen({ onStart, onPractice, onEasy, stats }: Props) {
+export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, stats }: Props) {
   const [name, setName] = useState(stats?.name ?? 'かず');
 
   const trimmed = name.trim();
@@ -58,6 +59,16 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, stats }: 
       border: 'rgba(64,192,87,0.5)',
       anim: 'float-bob-1 4s ease-in-out infinite 1.6s',
       onSelect: onEasy,
+    },
+    {
+      id: 'char',
+      emoji: '🔤',
+      label: 'もじモード',
+      desc: 'おとで\nもじをおぼえよう！',
+      gradient: 'linear-gradient(135deg, #f06595 0%, #ffd43b 100%)',
+      border: 'rgba(240,101,149,0.5)',
+      anim: 'float-bob-2 4s ease-in-out infinite 2.4s',
+      onSelect: onChar,
     },
   ];
 
@@ -107,7 +118,7 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, stats }: 
         <p className="text-center text-sm font-bold text-gray-400 mb-3 tracking-wide">
           モードをえらんでね 👇
         </p>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {MODES.map((mode) => (
             <button
               key={mode.id}

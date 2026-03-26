@@ -1,4 +1,23 @@
-export type AppScreen = 'name-entry' | 'settings' | 'game' | 'result' | 'practice-settings' | 'practice' | 'easy-settings' | 'easy';
+export type AppScreen =
+  | 'name-entry' | 'settings' | 'game' | 'result'
+  | 'practice-settings' | 'practice'
+  | 'easy-settings' | 'easy'
+  | 'char-settings' | 'char-game'
+  | 'char-practice-settings' | 'char-practice';
+
+// ── Character mode types ──────────────────────────────────────────────────────
+
+export type ContentType = 'numbers' | 'hiragana' | 'katakana' | 'alphabet';
+
+export interface CharGameSettings {
+  contentType: Exclude<ContentType, 'numbers'>;
+  bingoSubMode: 'char-show' | 'sound-match';
+  cardMode: CardMode;
+}
+
+export interface CharPracticeSettings {
+  contentType: Exclude<ContentType, 'numbers'>;
+}
 
 export interface PracticeSettings {
   operators: MathOperator[];

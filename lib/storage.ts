@@ -66,3 +66,20 @@ export function saveEasyBestStreak(playerName: string, streak: number): void {
   if (typeof window === 'undefined') return;
   localStorage.setItem(`${EASY_STREAK_KEY_PREFIX}${playerName}`, String(streak));
 }
+
+const CHAR_STREAK_KEY_PREFIX = 'bingo_char_streak_';
+
+export function getCharBestStreak(playerName: string, contentType: string): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    const raw = localStorage.getItem(`${CHAR_STREAK_KEY_PREFIX}${contentType}_${playerName}`);
+    return raw ? parseInt(raw, 10) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+export function saveCharBestStreak(playerName: string, contentType: string, streak: number): void {
+  if (typeof window === 'undefined') return;
+  localStorage.setItem(`${CHAR_STREAK_KEY_PREFIX}${contentType}_${playerName}`, String(streak));
+}
