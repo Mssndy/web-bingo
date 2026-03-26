@@ -73,6 +73,32 @@
   100% { transform: scale(1) rotate(0deg);   opacity: 1; }
 }
 
+@keyframes float-bob-1 {
+  0%, 100% { transform: translateY(0px) rotate(-1deg); }
+  50%       { transform: translateY(-10px) rotate(1.5deg); }
+}
+
+@keyframes float-bob-2 {
+  0%, 100% { transform: translateY(0px) rotate(2deg); }
+  50%       { transform: translateY(-14px) rotate(-2deg); }
+}
+
+@keyframes float-bob-3 {
+  0%, 100% { transform: translateY(0px) rotate(-2deg); }
+  35%       { transform: translateY(-8px) rotate(1deg); }
+  70%       { transform: translateY(-13px) rotate(-1deg); }
+}
+
+@keyframes twinkle {
+  0%, 100% { opacity: 0.9; transform: scale(1)   rotate(0deg); }
+  50%       { opacity: 0.1; transform: scale(0.4) rotate(20deg); }
+}
+
+@keyframes tile-pulse {
+  0%, 100% { transform: scale(1); }
+  50%       { transform: scale(1.03); }
+}
+
 body {
   background-color: var(--color-bingo-bg);
   font-family: var(--font-sans);

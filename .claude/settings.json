@@ -13,7 +13,17 @@
       "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node --version)",
       "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/npm run:*)",
       "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node /home/mssndy/dev/web-bingo/node_modules/next/dist/bin/next build)",
-      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node /home/mssndy/dev/web-bingo/node_modules/typescript/bin/tsc --noEmit)"
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node /home/mssndy/dev/web-bingo/node_modules/typescript/bin/tsc --noEmit)",
+      "Bash(/home/mssndy/.nvm/versions/node/v20.20.0/bin/node /home/mssndy/dev/web-bingo/node_modules/typescript/bin/tsc --noEmit --project /home/mssndy/dev/web-bingo/tsconfig.json)",
+      "Read(//tmp/**)",
+      "Bash(node -e \"const {execSync} = require\\(''child_process''\\); try { execSync\\(''npx tsc --noEmit'', {encoding:''utf8'', stdio:''pipe''}\\)} catch\\(e\\) { console.log\\(e.stdout\\); console.log\\(e.stderr\\); }\")",
+      "Read(//home/mssndy/**)",
+      "Bash(~/.nvm/versions/node/v20.20.0/bin/npx tsc:*)",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/node --version)",
+      "Bash(~/.nvm/versions/node/v20.20.1/bin/npx tsc:*)",
+      "Bash(/home/mssndy/dev/web-bingo/node_modules/.bin/tsc --noEmit --project /home/mssndy/dev/web-bingo/tsconfig.json)",
+      "Bash(git -C /home/mssndy/dev/web-bingo status)",
+      "Bash(git -C /home/mssndy/dev/web-bingo diff --stat HEAD app/globals.css components/ui/HeroIllustration.tsx .claude/settings.json)"
     ]
   }
 }
