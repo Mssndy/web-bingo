@@ -1,8 +1,20 @@
-export type AppScreen = 'name-entry' | 'settings' | 'game' | 'result' | 'practice-settings' | 'practice';
+export type AppScreen = 'name-entry' | 'settings' | 'game' | 'result' | 'practice-settings' | 'practice' | 'easy-settings' | 'easy';
 
 export interface PracticeSettings {
   operators: MathOperator[];
   maxNumber: MaxNumber;
+}
+
+export interface EasySettings {
+  operators: Array<'+' | '-'>;
+}
+
+export interface EasyProblem {
+  operator: '+' | '-';
+  operandA: number;
+  operandB: number;
+  answer: number;
+  expression: string;
 }
 export type MathOperator = '+' | '-' | '×' | '÷';
 export type MaxNumber = 30 | 50 | 75;

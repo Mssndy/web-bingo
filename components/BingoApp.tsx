@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings } from '@/lib/types';
+import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings, EasySettings } from '@/lib/types';
 import { loadStatsForPlayer, saveStats, createEmptyStats } from '@/lib/storage';
 import {
   createInitialGameState,
@@ -20,6 +20,8 @@ import GameScreen from '@/components/screens/GameScreen';
 import ResultScreen from '@/components/screens/ResultScreen';
 import PracticeSettingsScreen from '@/components/screens/PracticeSettingsScreen';
 import PracticeGameScreen from '@/components/screens/PracticeGameScreen';
+import EasySettingsScreen from '@/components/screens/EasySettingsScreen';
+import EasyGameScreen from '@/components/screens/EasyGameScreen';
 
 const DEFAULT_SETTINGS: GameSettings = {
   mode: 'calculation',
@@ -38,6 +40,9 @@ export default function BingoApp() {
   const [practiceSettings, setPracticeSettings] = useState<PracticeSettings>({
     operators: ['+', '-'],
     maxNumber: 30,
+  });
+  const [easySettings, setEasySettings] = useState<EasySettings>({
+    operators: ['+', '-'],
   });
 
   // Always-fresh refs to avoid stale closures in auto-draw timers
@@ -220,10 +225,16 @@ export default function BingoApp() {
     setScreen('practice-settings');
   }
 
+  function handleGoToEasy(name: string) {
+    setPlayerName(name);
+    setStats(loadStatsForPlayer(name));
+    setScreen('easy-settings');
+  }
+
   return (
     <main className="max-w-lg mx-auto w-full">
       {screen === 'name-entry' && (
-        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} stats={stats} />
+        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} onEasy={handleGoToEasy} stats={stats} />
       )}
       {screen === 'settings' && (
         <SettingsScreen
@@ -269,6 +280,22 @@ export default function BingoApp() {
         <PracticeGameScreen
           playerName={playerName}
           settings={practiceSettings}
+          onHome={handleBackToName}
+        />
+      )}
+      {screen === 'easy-settings' && (
+        <EasySettingsScreen
+          playerName={playerName}
+          settings={easySettings}
+          onSettingsChange={setEasySettings}
+          onStart={() => setScreen('easy')}
+          onBack={() => setScreen('name-entry')}
+        />
+      )}
+      {screen === 'easy' && (
+        <EasyGameScreen
+          playerName={playerName}
+          settings={easySettings}
           onHome={handleBackToName}
         />
       )}
