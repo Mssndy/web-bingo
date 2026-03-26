@@ -51,6 +51,75 @@ function AppleGroup({
   );
 }
 
+/** Apple illustration shown DURING the question (answer not yet revealed) */
+function VisualQuestion({ problem }: { problem: EasyProblem }) {
+  const { operator, operandA, operandB } = problem;
+
+  if (operator === '+') {
+    return (
+      <div
+        className="rounded-3xl border-4 p-3"
+        style={{ background: 'white', borderColor: 'var(--color-bingo-orange)' }}
+      >
+        <p className="text-center text-xs font-bold text-gray-400 mb-2">りんごをかぞえてみよう！</p>
+        <div className="flex items-end justify-center gap-2 flex-wrap">
+          <AppleGroup count={operandA} color="#f0fdf4" borderColor="#86efac" label={`${operandA}こ`} />
+          <span className="text-2xl font-black mb-4" style={{ color: 'var(--color-bingo-green)' }}>＋</span>
+          <AppleGroup count={operandB} color="#eff6ff" borderColor="#93c5fd" label={`${operandB}こ`} />
+          <span className="text-2xl font-black mb-4 text-gray-400">＝</span>
+          <div className="flex flex-col items-center gap-1">
+            <div
+              className="rounded-2xl p-2 border-2 border-dashed flex items-center justify-center"
+              style={{ background: '#fefce8', borderColor: '#fbbf24', minWidth: 48, minHeight: 44 }}
+            >
+              <span className="text-2xl font-black text-gray-400">？</span>
+            </div>
+            <span className="text-xs font-black text-gray-400">なんこ？</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // Subtraction: show all a apples, b of them greyed (will be taken away), result is ？
+  return (
+    <div
+      className="rounded-3xl border-4 p-3"
+      style={{ background: 'white', borderColor: 'var(--color-bingo-orange)' }}
+    >
+      <p className="text-center text-xs font-bold text-gray-400 mb-2">りんごをかぞえてみよう！</p>
+      <div className="flex flex-col items-center gap-2">
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className="rounded-2xl p-2 border-2 flex flex-wrap justify-center gap-0.5"
+            style={{ background: '#f9fafb', borderColor: '#d1d5db', maxWidth: 140 }}
+          >
+            {Array.from({ length: problem.answer }).map((_, i) => (
+              <span key={`keep-${i}`} className="text-xl leading-none">🍎</span>
+            ))}
+            {Array.from({ length: operandB }).map((_, i) => (
+              <span key={`rem-${i}`} className="text-xl leading-none" style={{ filter: 'grayscale(1)', opacity: 0.3 }}>🍎</span>
+            ))}
+          </div>
+          <span className="text-xs font-black text-gray-500">ぜんぶで {operandA}こ</span>
+        </div>
+        <span className="text-sm font-black" style={{ color: 'var(--color-bingo-blue)' }}>
+          {operandB}こ とったら…？
+        </span>
+        <div className="flex flex-col items-center gap-1">
+          <div
+            className="rounded-2xl p-2 border-2 border-dashed flex items-center justify-center"
+            style={{ background: '#fefce8', borderColor: '#fbbf24', minWidth: 48, minHeight: 44 }}
+          >
+            <span className="text-2xl font-black text-gray-400">？</span>
+          </div>
+          <span className="text-xs font-black text-gray-400">のこりなんこ？</span>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function VisualFeedback({ problem }: { problem: EasyProblem }) {
   const { operator, operandA, operandB, answer } = problem;
 
@@ -214,7 +283,7 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
       {/* Problem display */}
       {problem && (
         <div
-          className="text-center rounded-3xl border-4 py-5 px-6 shadow-lg"
+          className="text-center rounded-3xl border-4 py-4 px-6 shadow-lg"
           style={{
             background: 'var(--color-bingo-yellow)',
             borderColor: 'var(--color-bingo-orange)',
@@ -226,6 +295,10 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
           </p>
         </div>
       )}
+
+      {/* Apple illustration: question phase → VisualQuestion, answered → VisualFeedback */}
+      {problem && !feedback && <VisualQuestion problem={problem} />}
+      {problem && feedback && <VisualFeedback problem={problem} />}
 
       {/* Feedback banner */}
       {feedback && (
@@ -302,9 +375,6 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
           })}
         </div>
       )}
-
-      {/* Visual apple feedback */}
-      {feedback && problem && <VisualFeedback problem={problem} />}
 
       {/* Next question button */}
       {feedback && (
