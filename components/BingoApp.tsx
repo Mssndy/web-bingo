@@ -26,6 +26,9 @@ import CharSettingsScreen from '@/components/screens/CharSettingsScreen';
 import CharGameScreen from '@/components/screens/CharGameScreen';
 import CharPracticeSettingsScreen from '@/components/screens/CharPracticeSettingsScreen';
 import CharPracticeGameScreen from '@/components/screens/CharPracticeGameScreen';
+import JankenGameScreen from '@/components/screens/JankenGameScreen';
+import TossGameScreen from '@/components/screens/TossGameScreen';
+import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
 import {
   generateCharBingoCard,
   createInitialCharGameState,
@@ -263,6 +266,11 @@ export default function BingoApp() {
     setScreen('char-settings');
   }
 
+  function handleGoToMiniGamePlaza(name: string) {
+    setPlayerName(name);
+    setScreen('minigame-plaza');
+  }
+
   function handleStartCharGame() {
     const chars = getCharSet(charSettings.contentType);
     const card = charSettings.cardMode === 'web' ? generateCharBingoCard(chars) : null;
@@ -309,7 +317,7 @@ export default function BingoApp() {
   return (
     <main className="max-w-lg mx-auto w-full">
       {screen === 'name-entry' && (
-        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} onEasy={handleGoToEasy} onChar={handleGoToChar} stats={stats} />
+        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} onEasy={handleGoToEasy} onChar={handleGoToChar} onMiniGame={handleGoToMiniGamePlaza} stats={stats} />
       )}
       {screen === 'settings' && (
         <SettingsScreen
@@ -409,6 +417,26 @@ export default function BingoApp() {
           playerName={playerName}
           settings={charPracticeSettings}
           onHome={handleBackToName}
+        />
+      )}
+      {screen === 'minigame-plaza' && (
+        <MiniGamePlazaScreen
+          playerName={playerName}
+          onHome={handleBackToName}
+          onJanken={() => setScreen('janken')}
+          onToss={() => setScreen('toss')}
+        />
+      )}
+      {screen === 'janken' && (
+        <JankenGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
+        />
+      )}
+      {screen === 'toss' && (
+        <TossGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
         />
       )}
     </main>

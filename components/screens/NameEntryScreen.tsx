@@ -10,6 +10,7 @@ interface Props {
   onPractice: (name: string) => void;
   onEasy: (name: string) => void;
   onChar: (name: string) => void;
+  onMiniGame: (name: string) => void;
   stats: PlayerStats | null;
 }
 
@@ -24,7 +25,7 @@ interface ModeCard {
   onSelect: (name: string) => void;
 }
 
-export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, stats }: Props) {
+export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, stats }: Props) {
   const [name, setName] = useState(stats?.name ?? 'かず');
 
   const trimmed = name.trim();
@@ -69,6 +70,16 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, s
       border: 'rgba(240,101,149,0.5)',
       anim: 'float-bob-2 4s ease-in-out infinite 2.4s',
       onSelect: onChar,
+    },
+    {
+      id: 'minigame',
+      emoji: '🎮',
+      label: 'ミニゲーム広場',
+      desc: 'いろんなゲームで\nあそぼう！',
+      gradient: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+      border: 'rgba(102,126,234,0.5)',
+      anim: 'float-bob-3 4s ease-in-out infinite 3.2s',
+      onSelect: onMiniGame,
     },
   ];
 

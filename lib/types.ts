@@ -3,7 +3,8 @@ export type AppScreen =
   | 'practice-settings' | 'practice'
   | 'easy-settings' | 'easy'
   | 'char-settings' | 'char-game'
-  | 'char-practice-settings' | 'char-practice';
+  | 'char-practice-settings' | 'char-practice'
+  | 'minigame-plaza' | 'janken' | 'toss';
 
 // ── Character mode types ──────────────────────────────────────────────────────
 

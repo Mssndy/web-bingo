@@ -17,36 +17,42 @@ const AUTO_ADVANCE_SECS = 3;
 
 // ── Apple visual helpers ────────────────────────────────────────────────────
 
-function AppleGroup({
-  count,
-  removed = false,
-  color = '#fff',
-  borderColor = '#e5e7eb',
+/** Renders apples in a fixed 5-per-row grid. brightCount = normal, dimCount = greyed-out (removed). */
+function AppleGrid({
+  brightCount,
+  dimCount = 0,
+  color = '#f9fafb',
+  borderColor = '#d1d5db',
   label,
 }: {
-  count: number;
-  removed?: boolean;
+  brightCount: number;
+  dimCount?: number;
   color?: string;
   borderColor?: string;
   label?: string;
 }) {
   return (
-    <div className="flex flex-col items-center gap-1">
+    <div className="flex flex-col items-center gap-1.5">
       <div
-        className="rounded-2xl p-2 border-2 flex flex-wrap justify-center gap-0.5"
-        style={{ background: color, borderColor, maxWidth: 120, minWidth: 40 }}
+        className="rounded-2xl p-3 border-2"
+        style={{ background: color, borderColor }}
       >
-        {Array.from({ length: count }).map((_, i) => (
-          <span
-            key={i}
-            className="text-xl leading-none"
-            style={removed ? { filter: 'grayscale(1)', opacity: 0.3 } : undefined}
-          >
-            🍎
-          </span>
-        ))}
+        <div className="grid gap-1" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
+          {Array.from({ length: brightCount }).map((_, i) => (
+            <span key={`b-${i}`} className="text-3xl leading-none text-center select-none">🍎</span>
+          ))}
+          {Array.from({ length: dimCount }).map((_, i) => (
+            <span
+              key={`d-${i}`}
+              className="text-3xl leading-none text-center select-none"
+              style={{ filter: 'grayscale(1)', opacity: 0.28 }}
+            >
+              🍎
+            </span>
+          ))}
+        </div>
       </div>
-      {label && <span className="text-xs font-black text-gray-500">{label}</span>}
+      {label && <span className="text-sm font-black text-gray-500">{label}</span>}
     </div>
   );
 }
@@ -58,62 +64,55 @@ function VisualQuestion({ problem }: { problem: EasyProblem }) {
   if (operator === '+') {
     return (
       <div
-        className="rounded-3xl border-4 p-3"
+        className="rounded-3xl border-4 p-4"
         style={{ background: 'white', borderColor: 'var(--color-bingo-orange)' }}
       >
-        <p className="text-center text-xs font-bold text-gray-400 mb-2">りんごをかぞえてみよう！</p>
-        <div className="flex items-end justify-center gap-2 flex-wrap">
-          <AppleGroup count={operandA} color="#f0fdf4" borderColor="#86efac" label={`${operandA}こ`} />
-          <span className="text-2xl font-black mb-4" style={{ color: 'var(--color-bingo-green)' }}>＋</span>
-          <AppleGroup count={operandB} color="#eff6ff" borderColor="#93c5fd" label={`${operandB}こ`} />
-          <span className="text-2xl font-black mb-4 text-gray-400">＝</span>
-          <div className="flex flex-col items-center gap-1">
+        <p className="text-center text-xs font-bold text-gray-400 mb-3">りんごをかぞえてみよう！</p>
+        <div className="flex flex-col items-center gap-2">
+          <AppleGrid brightCount={operandA} color="#f0fdf4" borderColor="#86efac" label={`${operandA}こ`} />
+          <span className="text-3xl font-black" style={{ color: 'var(--color-bingo-green)' }}>＋</span>
+          <AppleGrid brightCount={operandB} color="#eff6ff" borderColor="#93c5fd" label={`${operandB}こ`} />
+          <span className="text-3xl font-black text-gray-400">＝</span>
+          <div className="flex flex-col items-center gap-1.5">
             <div
-              className="rounded-2xl p-2 border-2 border-dashed flex items-center justify-center"
-              style={{ background: '#fefce8', borderColor: '#fbbf24', minWidth: 48, minHeight: 44 }}
+              className="rounded-2xl px-8 py-3 border-2 border-dashed flex items-center justify-center"
+              style={{ background: '#fefce8', borderColor: '#fbbf24' }}
             >
-              <span className="text-2xl font-black text-gray-400">？</span>
+              <span className="text-3xl font-black text-gray-400">？</span>
             </div>
-            <span className="text-xs font-black text-gray-400">なんこ？</span>
+            <span className="text-sm font-black text-gray-400">なんこ？</span>
           </div>
         </div>
       </div>
     );
   }
 
-  // Subtraction: show all a apples, b of them greyed (will be taken away), result is ？
+  // Subtraction: show all operandA apples (answer bright + operandB dim), result is ？
   return (
     <div
-      className="rounded-3xl border-4 p-3"
+      className="rounded-3xl border-4 p-4"
       style={{ background: 'white', borderColor: 'var(--color-bingo-orange)' }}
     >
-      <p className="text-center text-xs font-bold text-gray-400 mb-2">りんごをかぞえてみよう！</p>
-      <div className="flex flex-col items-center gap-2">
-        <div className="flex flex-col items-center gap-1">
-          <div
-            className="rounded-2xl p-2 border-2 flex flex-wrap justify-center gap-0.5"
-            style={{ background: '#f9fafb', borderColor: '#d1d5db', maxWidth: 140 }}
-          >
-            {Array.from({ length: problem.answer }).map((_, i) => (
-              <span key={`keep-${i}`} className="text-xl leading-none">🍎</span>
-            ))}
-            {Array.from({ length: operandB }).map((_, i) => (
-              <span key={`rem-${i}`} className="text-xl leading-none" style={{ filter: 'grayscale(1)', opacity: 0.3 }}>🍎</span>
-            ))}
-          </div>
-          <span className="text-xs font-black text-gray-500">ぜんぶで {operandA}こ</span>
-        </div>
-        <span className="text-sm font-black" style={{ color: 'var(--color-bingo-blue)' }}>
+      <p className="text-center text-xs font-bold text-gray-400 mb-3">りんごをかぞえてみよう！</p>
+      <div className="flex flex-col items-center gap-3">
+        <AppleGrid
+          brightCount={problem.answer}
+          dimCount={operandB}
+          color="#f9fafb"
+          borderColor="#d1d5db"
+          label={`ぜんぶで ${operandA}こ`}
+        />
+        <span className="text-base font-black" style={{ color: 'var(--color-bingo-blue)' }}>
           {operandB}こ とったら…？
         </span>
-        <div className="flex flex-col items-center gap-1">
+        <div className="flex flex-col items-center gap-1.5">
           <div
-            className="rounded-2xl p-2 border-2 border-dashed flex items-center justify-center"
-            style={{ background: '#fefce8', borderColor: '#fbbf24', minWidth: 48, minHeight: 44 }}
+            className="rounded-2xl px-8 py-3 border-2 border-dashed flex items-center justify-center"
+            style={{ background: '#fefce8', borderColor: '#fbbf24' }}
           >
-            <span className="text-2xl font-black text-gray-400">？</span>
+            <span className="text-3xl font-black text-gray-400">？</span>
           </div>
-          <span className="text-xs font-black text-gray-400">のこりなんこ？</span>
+          <span className="text-sm font-black text-gray-400">のこりなんこ？</span>
         </div>
       </div>
     </div>
@@ -130,18 +129,18 @@ function VisualFeedback({ problem }: { problem: EasyProblem }) {
         style={{ background: 'white', borderColor: 'var(--color-bingo-green)' }}
       >
         <p className="text-center text-xs font-bold text-gray-400 mb-3">りんごでかんがえてみよう！</p>
-        <div className="flex items-end justify-center gap-2 flex-wrap">
-          <AppleGroup count={operandA} color="#f0fdf4" borderColor="#86efac" label={`${operandA}こ`} />
-          <span className="text-2xl font-black mb-4" style={{ color: 'var(--color-bingo-green)' }}>＋</span>
-          <AppleGroup count={operandB} color="#eff6ff" borderColor="#93c5fd" label={`${operandB}こ`} />
-          <span className="text-2xl font-black mb-4 text-gray-400">＝</span>
-          <AppleGroup count={answer} color="#fefce8" borderColor="#fbbf24" label={`${answer}こ！`} />
+        <div className="flex flex-col items-center gap-2">
+          <AppleGrid brightCount={operandA} color="#f0fdf4" borderColor="#86efac" label={`${operandA}こ`} />
+          <span className="text-3xl font-black" style={{ color: 'var(--color-bingo-green)' }}>＋</span>
+          <AppleGrid brightCount={operandB} color="#eff6ff" borderColor="#93c5fd" label={`${operandB}こ`} />
+          <span className="text-3xl font-black text-gray-400">＝</span>
+          <AppleGrid brightCount={answer} color="#fefce8" borderColor="#fbbf24" label={`${answer}こ！`} />
         </div>
       </div>
     );
   }
 
-  // Subtraction visual: show all apples (removed ones grayed out), then remaining
+  // Subtraction: show all (removed grayed), then just the remaining
   return (
     <div
       className="rounded-3xl border-4 p-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
@@ -149,29 +148,17 @@ function VisualFeedback({ problem }: { problem: EasyProblem }) {
     >
       <p className="text-center text-xs font-bold text-gray-400 mb-3">りんごでかんがえてみよう！</p>
       <div className="flex flex-col items-center gap-3">
-        {/* All apples: remaining ones bright, removed ones grayed */}
-        <div className="flex flex-col items-center gap-1">
-          <div
-            className="rounded-2xl p-2 border-2 flex flex-wrap justify-center gap-0.5"
-            style={{ background: '#f9fafb', borderColor: '#d1d5db', maxWidth: 140 }}
-          >
-            {Array.from({ length: answer }).map((_, i) => (
-              <span key={`keep-${i}`} className="text-xl leading-none">🍎</span>
-            ))}
-            {Array.from({ length: operandB }).map((_, i) => (
-              <span key={`rem-${i}`} className="text-xl leading-none" style={{ filter: 'grayscale(1)', opacity: 0.3 }}>🍎</span>
-            ))}
-          </div>
-          <span className="text-xs font-black text-gray-500">ぜんぶで {operandA}こ</span>
-        </div>
-
-        <div className="flex items-center gap-1">
-          <span className="text-base font-black" style={{ color: 'var(--color-bingo-blue)' }}>
-            {operandB}こ とった →
-          </span>
-        </div>
-
-        <AppleGroup count={answer} color="#f0fdf4" borderColor="#86efac" label={`のこり ${answer}こ！`} />
+        <AppleGrid
+          brightCount={answer}
+          dimCount={operandB}
+          color="#f9fafb"
+          borderColor="#d1d5db"
+          label={`ぜんぶで ${operandA}こ`}
+        />
+        <span className="text-base font-black" style={{ color: 'var(--color-bingo-blue)' }}>
+          {operandB}こ とった →
+        </span>
+        <AppleGrid brightCount={answer} color="#f0fdf4" borderColor="#86efac" label={`のこり ${answer}こ！`} />
       </div>
     </div>
   );
