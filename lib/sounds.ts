@@ -1,20 +1,18 @@
 /**
- * Simple Web Audio API sound effects — no external files needed.
- * All sounds are triggered by user interaction, so AudioContext suspension
- * is not an issue.
+ * Web Audio API サウンドエフェクト — 外部ファイル不要。
+ * すべてユーザー操作起点で鳴らすため AudioContext の停止問題なし。
  */
 
 type OscType = OscillatorType;
 
 function makeCtx(): AudioContext | null {
   if (typeof window === 'undefined') return null;
-  try {
-    return new AudioContext();
-  } catch {
-    return null;
-  }
+  try { return new AudioContext(); } catch { return null; }
 }
 
+// ── 内部ユーティリティ ────────────────────────────────────────────────────────
+
+/** 単音トーン（音量はアタック即 → 指数減衰） */
 function tone(
   ac: AudioContext,
   freq: number,
@@ -23,7 +21,7 @@ function tone(
   type: OscType = 'sine',
   vol = 0.28,
 ) {
-  const osc = ac.createOscillator();
+  const osc  = ac.createOscillator();
   const gain = ac.createGain();
   osc.connect(gain);
   gain.connect(ac.destination);
@@ -35,130 +33,229 @@ function tone(
   osc.stop(start + duration + 0.02);
 }
 
-/** 正解音: C5→E5→G5 の明るいアルペジオ */
-export function playCorrect(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 523, t,        0.12);
-  tone(ac, 659, t + 0.1,  0.12);
-  tone(ac, 784, t + 0.2,  0.22);
+/** 周波数スイープ（ヒュイン・ボイン系） */
+function sweep(
+  ac: AudioContext,
+  freqFrom: number,
+  freqTo: number,
+  start: number,
+  duration: number,
+  type: OscType = 'sine',
+  vol = 0.25,
+) {
+  const osc  = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  osc.type = type;
+  osc.frequency.setValueAtTime(freqFrom, start);
+  osc.frequency.exponentialRampToValueAtTime(freqTo, start + duration);
+  gain.gain.setValueAtTime(vol, start);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+  osc.start(start);
+  osc.stop(start + duration + 0.02);
 }
 
-/** ベスト更新音: さらに高い音を加えた豪華版 */
-export function playNewBest(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 523,  t,        0.1);
-  tone(ac, 659,  t + 0.09, 0.1);
-  tone(ac, 784,  t + 0.18, 0.1);
-  tone(ac, 1047, t + 0.27, 0.28);
-  // きらきらした高音
-  tone(ac, 1319, t + 0.45, 0.2, 'sine', 0.18);
-}
-
-/** 不正解音: 穏やかな下降音（怖くない） */
-export function playWrong(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 330, t,        0.1, 'sine', 0.2);
-  tone(ac, 247, t + 0.12, 0.18, 'sine', 0.15);
-}
-
-/** ビンゴ音: C-E-G-C のファンファーレ */
-export function playBingo(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 523,  t,        0.14);
-  tone(ac, 659,  t + 0.12, 0.14);
-  tone(ac, 784,  t + 0.24, 0.14);
-  tone(ac, 1047, t + 0.36, 0.45);
-  // ハーモニー
-  tone(ac, 784,  t + 0.36, 0.45, 'sine', 0.15);
-}
-
-/** 抽選音: 軽いポップ音 */
-export function playDraw(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 440, t, 0.07, 'sine', 0.18);
-}
-
-/** じゃんけんカウントダウン: じゃん・けん・ポン！の3拍リズム */
-export function playJankenPon(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 392, t,        0.09, 'sine', 0.22); // G4 じゃん
-  tone(ac, 392, t + 0.4,  0.09, 'sine', 0.22); // G4 けん
-  tone(ac, 523, t + 0.8,  0.18, 'sine', 0.30); // C5 ポン！
-}
-
-/** じゃんけん勝ち音: 明るいファンファーレ */
-export function playJankenWin(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 523,  t,        0.10);
-  tone(ac, 659,  t + 0.09, 0.10);
-  tone(ac, 784,  t + 0.18, 0.10);
-  tone(ac, 1047, t + 0.27, 0.32);
-}
-
-/** じゃんけん負け音: 穏やかな下降（怖くない） */
-export function playJankenLose(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  tone(ac, 370, t,        0.12, 'sine', 0.20);
-  tone(ac, 294, t + 0.14, 0.20, 'sine', 0.14);
-}
-
-/** たまなげ: 投げる瞬間のシュッという音 */
-export function playToss(): void {
-  const ac = makeCtx();
-  if (!ac) return;
-  const t = ac.currentTime;
-  const osc = ac.createOscillator();
+/** キックドラム（低い打撃音） */
+function kick(ac: AudioContext, start: number, vol = 0.52) {
+  const osc  = ac.createOscillator();
   const gain = ac.createGain();
   osc.connect(gain);
   gain.connect(ac.destination);
   osc.type = 'sine';
-  osc.frequency.setValueAtTime(700, t);
-  osc.frequency.exponentialRampToValueAtTime(130, t + 0.22);
-  gain.gain.setValueAtTime(0.20, t);
-  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.22);
+  osc.frequency.setValueAtTime(170, start);
+  osc.frequency.exponentialRampToValueAtTime(48, start + 0.14);
+  gain.gain.setValueAtTime(vol, start);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + 0.26);
+  osc.start(start);
+  osc.stop(start + 0.28);
+}
+
+/** スナップ / ハイハット（ホワイトノイズ短め） */
+function snap(ac: AudioContext, start: number, duration = 0.06, vol = 0.18) {
+  const bufSize = Math.ceil(ac.sampleRate * (duration + 0.01));
+  const buf  = ac.createBuffer(1, bufSize, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = Math.random() * 2 - 1;
+
+  const src    = ac.createBufferSource();
+  const filter = ac.createBiquadFilter();
+  const gain   = ac.createGain();
+  src.buffer = buf;
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(ac.destination);
+  filter.type            = 'highpass';
+  filter.frequency.value = 5000;
+  gain.gain.setValueAtTime(vol, start);
+  gain.gain.exponentialRampToValueAtTime(0.001, start + duration);
+  src.start(start);
+  src.stop(start + duration + 0.01);
+}
+
+// ── 公開サウンド ──────────────────────────────────────────────────────────────
+
+/** 正解音: スナップ + ポップなアルペジオ + きらきらエンディング */
+export function playCorrect(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.05, 0.18);
+  tone(ac, 523,  t + 0.01, 0.09, 'triangle', 0.26);  // C5
+  tone(ac, 659,  t + 0.08, 0.09, 'triangle', 0.26);  // E5
+  tone(ac, 784,  t + 0.15, 0.09, 'triangle', 0.26);  // G5
+  tone(ac, 1047, t + 0.22, 0.32, 'triangle', 0.28);  // C6
+  tone(ac, 1319, t + 0.22, 0.26, 'sine',     0.14);  // E6 ハーモニー
+  tone(ac, 1568, t + 0.30, 0.18, 'sine',     0.10);  // G6 きらきら
+  tone(ac, 2093, t + 0.37, 0.13, 'sine',     0.07);  // C7 超高音
+}
+
+/** ベスト更新音: キック + 6音アルペジオ + きらきらカスケード */
+export function playNewBest(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.46);
+  snap(ac, t, 0.06, 0.22);
+  tone(ac, 523,  t + 0.02, 0.09, 'triangle', 0.24);
+  tone(ac, 659,  t + 0.09, 0.09, 'triangle', 0.24);
+  tone(ac, 784,  t + 0.16, 0.09, 'triangle', 0.24);
+  tone(ac, 1047, t + 0.23, 0.11, 'triangle', 0.26);
+  tone(ac, 1319, t + 0.32, 0.11, 'triangle', 0.26);
+  tone(ac, 1568, t + 0.41, 0.32, 'triangle', 0.28);  // G6 フィナーレ
+  tone(ac, 1047, t + 0.41, 0.28, 'sine',     0.14);  // 和音
+  tone(ac, 2093, t + 0.50, 0.18, 'sine',     0.10);
+  tone(ac, 2637, t + 0.55, 0.14, 'sine',     0.07);  // E7
+}
+
+/** 不正解音: コミカルな「ぼよん」（上がって→下がる） */
+export function playWrong(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  // 上にバウンスしてから落ちる → ぼよん！
+  const osc  = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(240, t);
+  osc.frequency.linearRampToValueAtTime(420, t + 0.07);
+  osc.frequency.exponentialRampToValueAtTime(155, t + 0.36);
+  gain.gain.setValueAtTime(0.30, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.40);
   osc.start(t);
-  osc.stop(t + 0.24);
+  osc.stop(t + 0.42);
+  // 小さなエコー感
+  tone(ac, 210, t + 0.24, 0.14, 'sine', 0.10);
 }
 
-/** たまなげ: ゲージが止まったときのカチッという音 */
-export function playGaugeStop(): void {
+/** ビンゴ音: キック + スナップ + 5音ファンファーレ + 和音 */
+export function playBingo(): void {
   const ac = makeCtx();
   if (!ac) return;
   const t = ac.currentTime;
-  tone(ac, 900, t,        0.03, 'square', 0.12);
-  tone(ac, 650, t + 0.02, 0.05, 'sine',   0.10);
+  kick(ac, t, 0.55);
+  snap(ac, t, 0.09, 0.24);
+  tone(ac, 523,  t + 0.04, 0.09, 'triangle', 0.22);  // C5
+  tone(ac, 659,  t + 0.11, 0.09, 'triangle', 0.22);  // E5
+  tone(ac, 784,  t + 0.18, 0.09, 'triangle', 0.22);  // G5
+  tone(ac, 1047, t + 0.25, 0.48, 'triangle', 0.25);  // C6
+  tone(ac, 1319, t + 0.25, 0.42, 'sine',     0.14);  // E6
+  tone(ac, 784,  t + 0.25, 0.42, 'sine',     0.11);  // G5 低音
+  snap(ac, t + 0.25, 0.10, 0.15);                    // スネアアクセント
+  tone(ac, 2093, t + 0.40, 0.20, 'sine',     0.08);  // C7 きらきら
 }
 
-/** たまなげ: ボールが着地したときの「ポスッ」音 */
-export function playLand(): void {
+/** 抽選音: ポップなダブルトーン */
+export function playDraw(): void {
   const ac = makeCtx();
   if (!ac) return;
   const t = ac.currentTime;
-  tone(ac, 200, t,        0.05, 'sine', 0.28);
-  tone(ac, 130, t + 0.04, 0.10, 'sine', 0.20);
+  snap(ac, t, 0.03, 0.10);
+  tone(ac, 660, t,        0.08, 'triangle', 0.22);
+  tone(ac, 880, t + 0.07, 0.08, 'triangle', 0.18);
 }
 
-/** じゃんけんあいこ音: ニュートラルなポップ×2 */
+/** じゃんけんカウントダウン: じゃん・けん・ぽん！（3拍） */
+export function playJankenPon(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  // じゃん
+  snap(ac, t, 0.05, 0.14);
+  tone(ac, 392, t,       0.09, 'triangle', 0.26);  // G4
+  // けん
+  snap(ac, t + 0.40, 0.05, 0.14);
+  tone(ac, 392, t + 0.40, 0.09, 'triangle', 0.26);
+  // ぽん！（強め + キック）
+  kick(ac, t + 0.80, 0.46);
+  snap(ac, t + 0.80, 0.08, 0.22);
+  tone(ac, 523, t + 0.80, 0.24, 'triangle', 0.32);  // C5 上げる
+  tone(ac, 659, t + 0.88, 0.16, 'sine',     0.14);  // E5 残響
+}
+
+/** じゃんけん勝ち音: キック + 明るいアルペジオ */
+export function playJankenWin(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.44);
+  snap(ac, t, 0.06, 0.20);
+  tone(ac, 523,  t + 0.02, 0.09, 'triangle', 0.24);
+  tone(ac, 659,  t + 0.09, 0.09, 'triangle', 0.24);
+  tone(ac, 784,  t + 0.16, 0.09, 'triangle', 0.24);
+  tone(ac, 1047, t + 0.23, 0.40, 'triangle', 0.28);
+  tone(ac, 1319, t + 0.23, 0.34, 'sine',     0.14);
+  tone(ac, 1568, t + 0.34, 0.18, 'sine',     0.09);
+}
+
+/** じゃんけん負け音: 穏やかな2段落下（怖くない） */
+export function playJankenLose(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  sweep(ac, 440, 220, t,        0.16, 'triangle', 0.24);
+  sweep(ac, 350, 175, t + 0.20, 0.20, 'sine',     0.16);
+}
+
+/** あいこ音: 同音2連ポップ */
 export function playJankenDraw(): void {
   const ac = makeCtx();
   if (!ac) return;
   const t = ac.currentTime;
-  tone(ac, 440, t,        0.08, 'sine', 0.20);
-  tone(ac, 440, t + 0.16, 0.08, 'sine', 0.16);
+  snap(ac, t, 0.04, 0.10);
+  tone(ac, 494, t,        0.08, 'triangle', 0.22);  // B4
+  tone(ac, 494, t + 0.16, 0.08, 'triangle', 0.16);
+}
+
+/** たまなげ: カートゥーン「ヒュッ！」投球音 */
+export function playToss(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  sweep(ac, 280, 1100, t,        0.10, 'sawtooth', 0.20);
+  sweep(ac, 900, 220,  t + 0.10, 0.16, 'sine',     0.14);
+  snap(ac, t, 0.04, 0.12);
+}
+
+/** たまなげ: 着地の「ポスッ」＋バウンス小音 */
+export function playLand(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.36);
+  // バウンス感
+  tone(ac, 270, t + 0.09, 0.07, 'sine', 0.16);
+  tone(ac, 340, t + 0.14, 0.05, 'sine', 0.10);
+}
+
+/** ゲージ停止: カチッ！＋ティン */
+export function playGaugeStop(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.04, 0.20);
+  tone(ac, 1400, t + 0.01, 0.10, 'sine', 0.14);
+  tone(ac, 700,  t + 0.01, 0.08, 'sine', 0.08);
 }
