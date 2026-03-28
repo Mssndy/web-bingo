@@ -199,6 +199,12 @@
   100% { transform: scale(1); }
 }
 
+/* Aimed cell pulsing highlight during gauge phase */
+@keyframes target-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px rgba(59,130,246,0.9), 0 0 0 5px rgba(59,130,246,0.35); }
+  50%       { box-shadow: 0 0 0 3px rgba(59,130,246,1),   0 0 0 10px rgba(59,130,246,0.05); }
+}
+
 /* Bingo line flash on completion */
 @keyframes toss-bingo-line {
   0%, 100% { filter: brightness(1); }

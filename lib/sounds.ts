@@ -136,6 +136,15 @@ export function playToss(): void {
   osc.stop(t + 0.24);
 }
 
+/** たまなげ: ゲージが止まったときのカチッという音 */
+export function playGaugeStop(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  tone(ac, 900, t,        0.03, 'square', 0.12);
+  tone(ac, 650, t + 0.02, 0.05, 'sine',   0.10);
+}
+
 /** たまなげ: ボールが着地したときの「ポスッ」音 */
 export function playLand(): void {
   const ac = makeCtx();
