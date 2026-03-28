@@ -1,6 +1,14 @@
 {
   "permissions": {
     "allow": [
+      "Bash(git *)",
+      "Bash(npm *)",
+      "Bash(npx *)",
+      "Bash(node *)",
+      "Write(**)",
+      "Edit(**)",
+      "Read(**)",
+      "Bash(vercel *)",
       "Bash(git commit:*)",
       "Bash(gh repo:*)",
       "Bash(npx vercel:*)",
