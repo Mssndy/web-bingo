@@ -109,10 +109,18 @@ function NeutralSimple({ size = 80 }: { size?: number }) {
 function RockObj({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
-      <ellipse cx="40" cy="76" rx="28" ry="4" fill="rgba(0,0,0,0.10)" />
-      <ellipse cx="40" cy="44" rx="30" ry="26" fill="#78716c" />
-      <ellipse cx="40" cy="38" rx="24" ry="20" fill="#a8a29e" />
-      <ellipse cx="33" cy="30" rx="9"  ry="6"  fill="rgba(255,255,255,0.32)" />
+      {/* shadow */}
+      <ellipse cx="40" cy="75" rx="25" ry="4" fill="rgba(0,0,0,0.13)" />
+      {/* jagged rock silhouette */}
+      <path d="M40 12 L50 17 L60 14 L66 24 L70 36 L65 48 L58 57 L48 63 L36 64 L24 60 L16 50 L14 38 L18 26 L26 17 Z" fill="#78716c" />
+      {/* mid-tone face */}
+      <path d="M40 16 L49 21 L58 19 L63 28 L66 38 L62 48 L55 55 L44 59 L34 58 L24 53 L20 42 L22 32 L30 22 Z" fill="#a8a29e" />
+      {/* highlight */}
+      <ellipse cx="34" cy="30" rx="9" ry="6" fill="rgba(255,255,255,0.30)" />
+      {/* cracks for texture */}
+      <line x1="48" y1="22" x2="55" y2="38" stroke="rgba(0,0,0,0.20)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="32" y1="36" x2="25" y2="52" stroke="rgba(0,0,0,0.20)" strokeWidth="1.5" strokeLinecap="round" />
+      <line x1="50" y1="44" x2="42" y2="56" stroke="rgba(0,0,0,0.13)" strokeWidth="1" strokeLinecap="round" />
     </svg>
   );
 }
@@ -219,6 +227,45 @@ function IllustrationScissorsCutPaper() {
   );
 }
 
+// ── Result faces ──────────────────────────────────────────────────────────
+
+function HappyFace({ size = 120 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ display: 'block' }}>
+      <circle cx="60" cy="60" r="54" fill="#fbbf24" stroke="#f59e0b" strokeWidth="3" />
+      <ellipse cx="42" cy="38" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
+      {/* happy squint eyes */}
+      <path d="M34 50 Q42 42 50 50" fill="none" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" />
+      <path d="M70 50 Q78 42 86 50" fill="none" stroke="#1e293b" strokeWidth="4" strokeLinecap="round" />
+      {/* big smile */}
+      <path d="M30 72 Q60 96 90 72" fill="none" stroke="#1e293b" strokeWidth="5" strokeLinecap="round" />
+      {/* rosy cheeks */}
+      <ellipse cx="26" cy="74" rx="11" ry="7" fill="rgba(249,115,22,0.28)" />
+      <ellipse cx="94" cy="74" rx="11" ry="7" fill="rgba(249,115,22,0.28)" />
+    </svg>
+  );
+}
+
+function SadFace({ size = 120 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 120 120" fill="none" style={{ display: 'block' }}>
+      <circle cx="60" cy="60" r="54" fill="#93c5fd" stroke="#60a5fa" strokeWidth="3" />
+      <ellipse cx="42" cy="38" rx="14" ry="9" fill="rgba(255,255,255,0.35)" />
+      {/* droopy eyebrows */}
+      <path d="M34 40 Q42 46 50 40" fill="none" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+      <path d="M70 40 Q78 46 86 40" fill="none" stroke="#1e293b" strokeWidth="3" strokeLinecap="round" />
+      {/* sad eyes */}
+      <circle cx="42" cy="54" r="6" fill="#1e293b" />
+      <circle cx="78" cy="54" r="6" fill="#1e293b" />
+      {/* sad mouth - downward arc */}
+      <path d="M34 80 Q60 65 86 80" fill="none" stroke="#1e293b" strokeWidth="5" strokeLinecap="round" />
+      {/* teardrops */}
+      <ellipse cx="40" cy="68" rx="4" ry="6" fill="rgba(59,130,246,0.65)" />
+      <ellipse cx="80" cy="68" rx="4" ry="6" fill="rgba(59,130,246,0.65)" />
+    </svg>
+  );
+}
+
 // ── Config / style maps ────────────────────────────────────────────────────
 
 const HAND_BG: Record<JankenHand, string> = {
@@ -305,6 +352,7 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
   const [pickResult, setPickResult] = useState<PickResult | null>(null);
   const [battleStep, setBattleStep] = useState<BattleStep>('enter');
   const [score, setScore]           = useState({ win: 0, lose: 0, draw: 0 });
+  const [showFlash, setShowFlash]   = useState(false);
 
   // Countdown beats
   useEffect(() => {
@@ -328,6 +376,7 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
       else if (pickResult.result === 'lose') playJankenLose();
       else                                   playJankenDraw();
       setPhase('reveal');
+      setShowFlash(true);
     }, 3000);
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
   }, [phase, pickResult]);
@@ -346,10 +395,18 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
     setPhase('countdown');
   }, []);
 
+  // Auto-clear flash after animation completes
+  useEffect(() => {
+    if (!showFlash) return;
+    const t = setTimeout(() => setShowFlash(false), 2600);
+    return () => clearTimeout(t);
+  }, [showFlash]);
+
   const handleAgain = useCallback(() => {
     setBeat(0);
     setPickResult(null);
     setBattleStep('enter');
+    setShowFlash(false);
     setPhase('ready');
   }, []);
 
@@ -416,7 +473,7 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
         <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
           <div className="flex items-end justify-center gap-10">
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black text-gray-400">CPU</p>
+              <p className="text-xs font-black text-gray-400">{playerName}</p>
               <div
                 className="w-[90px] h-[90px] rounded-2xl flex items-center justify-center"
                 style={{ background: 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)' }}
@@ -426,7 +483,7 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
             </div>
             <div className="text-4xl font-black text-gray-200 pb-4">VS</div>
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black text-gray-400">{playerName}</p>
+              <p className="text-xs font-black text-gray-400">CPU</p>
               <div
                 className="w-[90px] h-[90px] rounded-2xl flex items-center justify-center"
                 style={{ background: 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)' }}
@@ -458,7 +515,7 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
         <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
           <div className="flex items-end justify-center gap-10">
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black text-gray-400">CPU</p>
+              <p className="text-xs font-black text-gray-400">{playerName}</p>
               <div
                 className="w-[90px] h-[90px] rounded-2xl flex items-center justify-center"
                 style={{
@@ -471,7 +528,7 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
             </div>
             <div className="text-4xl font-black text-gray-200 pb-4">VS</div>
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black text-gray-400">{playerName}</p>
+              <p className="text-xs font-black text-gray-400">CPU</p>
               <div
                 className="w-[90px] h-[90px] rounded-2xl flex items-center justify-center"
                 style={{
@@ -532,11 +589,12 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
           <div className="grid grid-cols-3 gap-3 w-full">
             {(['guu', 'choki', 'paa'] as JankenHand[]).map((hand, i) => {
               const HandComp = SIMPLE_HAND[hand];
+              const ObjComp  = OBJECT_COMP[hand];
               return (
                 <button
                   key={hand}
                   onClick={() => commitPick(hand)}
-                  className="flex flex-col items-center gap-2 rounded-3xl py-4 px-1 shadow-lg active:scale-90 transition-all relative overflow-hidden"
+                  className="flex flex-col items-center gap-1.5 rounded-3xl py-3 px-1 shadow-lg active:scale-90 transition-all relative overflow-hidden"
                   style={{
                     background: HAND_BG[hand],
                     border: '3px solid rgba(255,255,255,0.35)',
@@ -547,8 +605,10 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
                     className="absolute inset-0 rounded-3xl"
                     style={{ background: 'linear-gradient(135deg,rgba(255,255,255,0.20) 0%,transparent 55%)' }}
                   />
-                  <HandComp size={68} />
-                  <span className="text-sm font-black text-white drop-shadow relative z-10">
+                  <HandComp size={54} />
+                  <div style={{ width: '80%', height: 1, background: 'rgba(255,255,255,0.25)' }} />
+                  <ObjComp size={32} />
+                  <span className="text-xs font-black text-white drop-shadow relative z-10">
                     {HAND_LABEL[hand]}
                   </span>
                 </button>
@@ -562,9 +622,9 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
       {phase === 'battle' && pickResult && (
         <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
           <div className="flex items-end justify-center gap-8">
-            <HandCard hand={pickResult.cpuHand}    label="CPU"       battleStep={battleStep} />
-            <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
             <HandCard hand={pickResult.playerHand} label={playerName} battleStep={battleStep} />
+            <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
+            <HandCard hand={pickResult.cpuHand}    label="CPU"       battleStep={battleStep} />
           </div>
           {battleStep === 'shake' && (
             <p className="text-xl font-black text-gray-500 animate-pulse">…どっちが かつ？！</p>
@@ -578,28 +638,6 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
 
           {/* Both object icons with win/lose/draw animations */}
           <div className="flex items-end justify-center gap-8">
-            {/* CPU */}
-            <div className="flex flex-col items-center gap-1.5">
-              <p className="text-xs font-black text-gray-400">CPU</p>
-              <div
-                className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
-                style={{
-                  background: HAND_BG[pickResult.cpuHand],
-                  border: '3px solid rgba(255,255,255,0.3)',
-                  animation: (() => {
-                    if (pickResult.result === 'lose') return 'janken-winner-bounce 0.8s ease-in-out 3';
-                    if (pickResult.result === 'win')  return 'janken-loser-fade 0.5s ease forwards';
-                    return 'janken-draw 1.2s ease-in-out infinite';
-                  })(),
-                }}
-              >
-                {(() => { const C = OBJECT_COMP[pickResult.cpuHand]; return <C size={80} />; })()}
-              </div>
-              <p className="text-sm font-black text-gray-600">{HAND_LABEL[pickResult.cpuHand]}</p>
-            </div>
-
-            <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
-
             {/* Player */}
             <div className="flex flex-col items-center gap-1.5">
               <p className="text-xs font-black text-gray-400">{playerName}</p>
@@ -618,6 +656,28 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
                 {(() => { const C = OBJECT_COMP[pickResult.playerHand]; return <C size={80} />; })()}
               </div>
               <p className="text-sm font-black text-gray-600">{HAND_LABEL[pickResult.playerHand]}</p>
+            </div>
+
+            <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
+
+            {/* CPU */}
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-xs font-black text-gray-400">CPU</p>
+              <div
+                className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
+                style={{
+                  background: HAND_BG[pickResult.cpuHand],
+                  border: '3px solid rgba(255,255,255,0.3)',
+                  animation: (() => {
+                    if (pickResult.result === 'lose') return 'janken-winner-bounce 0.8s ease-in-out 3';
+                    if (pickResult.result === 'win')  return 'janken-loser-fade 0.5s ease forwards';
+                    return 'janken-draw 1.2s ease-in-out infinite';
+                  })(),
+                }}
+              >
+                {(() => { const C = OBJECT_COMP[pickResult.cpuHand]; return <C size={80} />; })()}
+              </div>
+              <p className="text-sm font-black text-gray-600">{HAND_LABEL[pickResult.cpuHand]}</p>
             </div>
           </div>
 
@@ -678,6 +738,59 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
           >
             もう一度！✊
           </button>
+        </div>
+      )}
+
+      {/* ── WIN / LOSE flash overlay ── */}
+      {showFlash && pickResult && pickResult.result !== 'draw' && (
+        <div
+          className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 pointer-events-none"
+          style={{
+            background: pickResult.result === 'win'
+              ? 'radial-gradient(circle at 50% 40%, rgba(254,240,138,0.97), rgba(74,222,128,0.93))'
+              : 'radial-gradient(circle at 50% 40%, rgba(219,234,254,0.97), rgba(147,197,253,0.93))',
+            animation: 'janken-result-flash 2.6s ease forwards',
+          }}
+        >
+          {pickResult.result === 'win' ? (
+            <>
+              <div style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                <HappyFace size={150} />
+              </div>
+              <p
+                className="text-5xl font-black text-yellow-800 drop-shadow-lg"
+                style={{ animation: 'janken-banner 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.2s both', opacity: 0 }}
+              >
+                やった！！🎉
+              </p>
+              <div
+                className="flex gap-3 text-4xl"
+                style={{ animation: 'fade-in 0.4s ease 0.5s both', opacity: 0 }}
+              >
+                {['✨', '⭐', '🌟', '✨', '⭐'].map((s, i) => (
+                  <span key={i} style={{ animation: `janken-star-float 1.4s ease ${0.4 + i * 0.1}s both` }}>{s}</span>
+                ))}
+              </div>
+            </>
+          ) : (
+            <>
+              <div style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                <SadFace size={150} />
+              </div>
+              <p
+                className="text-4xl font-black text-blue-800 drop-shadow-lg"
+                style={{ animation: 'janken-banner 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.2s both', opacity: 0 }}
+              >
+                おしい！！💪
+              </p>
+              <p
+                className="text-xl font-bold text-blue-600"
+                style={{ animation: 'fade-in 0.4s ease 0.5s both', opacity: 0 }}
+              >
+                またがんばろう！
+              </p>
+            </>
+          )}
         </div>
       )}
     </div>
