@@ -54,8 +54,8 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, o
     {
       id: 'easy',
       emoji: '🍎',
-      label: 'かんたん学ぼう',
-      desc: 'えらんで\n正解しよう！',
+      label: 'えらんでまなぼう',
+      desc: '絵でわかる\nたのしいけいさん！',
       gradient: 'linear-gradient(135deg, #40c057 0%, #74c0fc 100%)',
       border: 'rgba(64,192,87,0.5)',
       anim: 'float-bob-1 4s ease-in-out infinite 1.6s',

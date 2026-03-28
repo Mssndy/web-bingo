@@ -114,7 +114,7 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
       {/* Greeting */}
       <p className="text-center text-base font-bold text-gray-500">
         <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
-        ちゃん、れんぞく正解をめざそう！
+        ちゃん、おとをきいてもじをえらんでね！
       </p>
 
       {/* Streak counter */}
@@ -182,10 +182,10 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
               <p className="text-base text-white opacity-90">{streak}もん れんぞく！さいこう！</p>
             </>
           ) : feedback === 'correct' ? (
-            <p className="text-3xl font-black text-white">GOOD！ 🎉</p>
+            <p className="text-3xl font-black text-white">よくできました！ 🎉</p>
           ) : (
             <>
-              <p className="text-2xl font-black text-white mb-1">おしい！ 💪</p>
+              <p className="text-2xl font-black text-white mb-1">おしい！もう一回！ 💪</p>
               <div className="bg-white rounded-xl py-2 px-4 mx-4">
                 <p className="text-xs font-bold text-gray-400 mb-0.5">せいかいは</p>
                 <p className="text-4xl font-black" style={{ color: 'var(--color-bingo-blue)' }}>
@@ -228,7 +228,7 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
                 key={choice}
                 onClick={() => handleChoice(choice)}
                 disabled={answered}
-                className="rounded-2xl border-4 py-6 font-black transition-all active:scale-90 shadow-sm disabled:cursor-default"
+                className="rounded-2xl border-4 py-7 font-black transition-all active:scale-90 shadow-sm disabled:cursor-default"
                 style={{
                   background: bg,
                   borderColor: border,

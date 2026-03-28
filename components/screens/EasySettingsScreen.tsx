@@ -11,9 +11,10 @@ interface Props {
   onBack: () => void;
 }
 
-const EASY_OPERATORS: { op: '+' | '-'; label: string; color: string }[] = [
-  { op: '+', label: '＋', color: 'var(--color-bingo-green)' },
-  { op: '-', label: '－', color: 'var(--color-bingo-blue)' },
+const EASY_OPERATORS: { op: '+' | '-' | '×'; label: string; sublabel: string; color: string }[] = [
+  { op: '+', label: '＋', sublabel: 'たしざん', color: 'var(--color-bingo-green)' },
+  { op: '-', label: '－', sublabel: 'ひきざん', color: 'var(--color-bingo-blue)' },
+  { op: '×', label: '×', sublabel: 'かけざん', color: 'var(--color-bingo-purple)' },
 ];
 
 export default function EasySettingsScreen({
@@ -23,7 +24,7 @@ export default function EasySettingsScreen({
   onStart,
   onBack,
 }: Props) {
-  function toggleOp(op: '+' | '-') {
+  function toggleOp(op: '+' | '-' | '×') {
     const current = settings.operators;
     if (current.includes(op) && current.length === 1) return;
     const next = current.includes(op) ? current.filter((o) => o !== op) : [...current, op];
@@ -31,7 +32,7 @@ export default function EasySettingsScreen({
   }
 
   return (
-    <div className="flex flex-col gap-5 px-6 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
       <div className="text-center">
@@ -56,9 +57,11 @@ export default function EasySettingsScreen({
 
       {/* Operator selection */}
       <section>
-        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">けいさんのしゅるい</h2>
+        <h2 className="text-xs font-bold text-gray-400 mb-3 tracking-wide text-center">
+          どのけいさんをする？（いくつでもえらべるよ）
+        </h2>
         <div className="flex gap-3 justify-center">
-          {EASY_OPERATORS.map(({ op, label, color }) => {
+          {EASY_OPERATORS.map(({ op, label, sublabel, color }) => {
             const active = settings.operators.includes(op);
             return (
               <button
@@ -66,16 +69,22 @@ export default function EasySettingsScreen({
                 onClick={() => toggleOp(op)}
                 style={active ? { backgroundColor: color, borderColor: color } : {}}
                 className={`
-                  w-20 h-16 text-3xl font-black rounded-2xl border-4 transition-all active:scale-90
+                  flex flex-col items-center justify-center gap-1
+                  w-20 h-20 text-3xl font-black rounded-2xl border-4 transition-all active:scale-90
                   ${active ? 'text-white shadow-md' : 'text-gray-400 border-gray-200 bg-white'}
                 `}
               >
                 {label}
+                <span className="text-[10px] font-black leading-none">
+                  {sublabel}
+                </span>
               </button>
             );
           })}
         </div>
-        <p className="text-center text-xs text-gray-400 mt-2">こたえは８つの中からえらべるよ！</p>
+        <p className="text-center text-xs text-gray-400 mt-3">
+          こたえは４つの中からえらべるよ！
+        </p>
       </section>
 
       {/* Back */}

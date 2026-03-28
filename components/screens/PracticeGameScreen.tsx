@@ -144,11 +144,11 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
               <p className="text-lg text-white mt-1 opacity-90">{streak}もん れんぞく！さいこう！</p>
             </>
           ) : feedback === 'good' ? (
-            <p className="text-4xl font-black text-white">GOOD！ 🎉</p>
+            <p className="text-4xl font-black text-white">よくできました！ 🎉</p>
           ) : (
             /* Wrong: show correct answer clearly */
             <>
-              <p className="text-3xl font-black text-white mb-2">おしい！ 💪</p>
+              <p className="text-3xl font-black text-white mb-2">おしい！もう一回！ 💪</p>
               <div className="bg-white rounded-2xl py-3 px-6 mx-4">
                 <p className="text-xs font-bold text-gray-400 mb-1">せいかいは</p>
                 <p className="text-5xl font-black text-[var(--color-bingo-blue)]">

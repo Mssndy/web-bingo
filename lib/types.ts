@@ -29,15 +29,17 @@ export interface PracticeSettings {
 }
 
 export interface EasySettings {
-  operators: Array<'+' | '-'>;
+  operators: Array<'+' | '-' | '×'>;
 }
 
 export interface EasyProblem {
-  operator: '+' | '-';
+  operator: '+' | '-' | '×';
   operandA: number;
   operandB: number;
   answer: number;
   expression: string;
+  /** emoji used for the multiplication groups visual */
+  emoji?: string;
 }
 export type MathOperator = '+' | '-' | '×' | '÷';
 export type MaxNumber = 30 | 50 | 75;
