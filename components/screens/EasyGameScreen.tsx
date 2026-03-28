@@ -5,6 +5,7 @@ import type { EasyProblem, EasySettings } from '@/lib/types';
 import { generateEasyProblem, generateChoices } from '@/lib/easy-problems';
 import { getEasyBestStreak, saveEasyBestStreak } from '@/lib/storage';
 import { playCorrect, playWrong, playNewBest } from '@/lib/sounds';
+import { saveRankEntry } from '@/lib/ranking';
 import ElapsedTimer from '@/components/ui/ElapsedTimer';
 
 interface Props {
@@ -233,7 +234,10 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
       {/* Header row */}
       <div className="flex items-center justify-between">
         <button
-          onClick={onHome}
+          onClick={() => {
+            saveRankEntry({ playerName, score: bestStreak, mode: 'easy' });
+            onHome();
+          }}
           className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform"
         >
           🏠 ホーム

@@ -6,6 +6,7 @@ import {
   GaugeZone, getZoneFromRadius, calcLandingCell,
 } from '@/lib/toss';
 import { playToss, playLand, playBingo, playCorrect, playWrong, playGaugeStop } from '@/lib/sounds';
+import { saveRankEntry } from '@/lib/ranking';
 
 interface Props {
   playerName: string;
@@ -122,7 +123,7 @@ function RingOverlay({
     const lbl  = zoneLabel(nr);
     const bW   = 172;
     const bH   = 44;
-    const badgeY = cy - r - 60 > 60 ? cy - r - 60 : cy + r + 16;
+    const badgeY = cy - r - 60 > 4 ? cy - r - 60 : cy + r + 16;
 
     // Freeze ring visuals
     ringRef.current?.setAttribute('r',              Math.max(r, 0.1).toFixed(1));
@@ -133,7 +134,7 @@ function RingOverlay({
     dotRef.current?.setAttribute('r',    '7');
     dotRef.current?.setAttribute('fill', col);
 
-    // Show badge
+    // Show badge — keep within card top/bottom
     if (badgeRectRef.current) {
       badgeRectRef.current.setAttribute('x',    (cx - bW / 2).toFixed(1));
       badgeRectRef.current.setAttribute('y',    badgeY.toFixed(1));
@@ -155,19 +156,20 @@ function RingOverlay({
   return (
     <svg
       style={{
-        position: 'fixed',
+        position: 'absolute',
         inset: 0,
-        width: '100vw',
-        height: '100vh',
-        zIndex: 150,
+        width: '100%',
+        height: '100%',
+        zIndex: 20,
         cursor: 'pointer',
         pointerEvents: 'all',
         touchAction: 'none',
+        borderRadius: 'inherit',
       }}
       onClick={handleTap}
     >
-      {/* Subtle full-screen dim */}
-      <rect x={0} y={0} width="100%" height="100%" fill="rgba(0,0,0,0.14)" />
+      {/* Dim the card while aiming */}
+      <rect x={0} y={0} width="100%" height="100%" fill="rgba(0,0,0,0.30)" />
 
       {/* Glow ring (wider, more transparent) */}
       <circle
@@ -322,6 +324,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
     Array.from({ length: 5 }, () => Array(5).fill(null)),
   );
   const launcherRef = useRef<HTMLDivElement>(null);
+  const cardRef     = useRef<HTMLDivElement>(null);
 
   // ── Step 1: tap a cell → enter aiming, show ring around that cell ────────────
 
@@ -329,12 +332,14 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
     if (flyingBall || ballsLeftRef.current === 0 || markedRef.current[row][col] || phase !== 'play') return;
 
     const cellEl = cellRefs.current[row][col];
-    if (cellEl) {
-      const rect = cellEl.getBoundingClientRect();
+    const cardEl = cardRef.current;
+    if (cellEl && cardEl) {
+      const cellRect = cellEl.getBoundingClientRect();
+      const cardRect = cardEl.getBoundingClientRect();
       setRingPos({
-        cx:   rect.left + rect.width  / 2,
-        cy:   rect.top  + rect.height / 2,
-        maxR: rect.width * 2.6,
+        cx:   cellRect.left - cardRect.left + cellRect.width  / 2,
+        cy:   cellRect.top  - cardRect.top  + cellRect.height / 2,
+        maxR: cardRect.width * 0.44,
       });
     }
     setAimTarget({ row, col });
@@ -396,6 +401,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
         if (newBallsLeft === 0) {
           const finalScore = calcTossScore(grid, newCells);
           setScore(finalScore);
+          saveRankEntry({ playerName, score: finalScore, mode: 'toss' });
           setTimeout(() => setPhase('result'), 700);
         }
       }, 520);
@@ -467,8 +473,10 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
       {/* Grid */}
       <div className="w-full max-w-sm px-3">
         <div
+          ref={cardRef}
           className="rounded-2xl p-2 shadow-xl"
           style={{
+            position: 'relative',
             background: 'linear-gradient(160deg, #3B1A08, #6B2D0D)',
             border: '3px solid #2D1206',
             boxShadow: '0 8px 28px rgba(59,26,8,0.5)',
@@ -495,6 +503,17 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
               })
             )}
           </div>
+
+          {/* Ring overlay — absolute within the card while aiming */}
+          {phase === 'aiming' && ringPos && (
+            <RingOverlay
+              cx={ringPos.cx}
+              cy={ringPos.cy}
+              maxR={ringPos.maxR}
+              speed={RING_SPEEDS[ringSpeed]}
+              onStop={handleRingStop}
+            />
+          )}
         </div>
       </div>
 
@@ -541,17 +560,6 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
             </button>
           ))}
         </div>
-      )}
-
-      {/* Ring overlay — shown over everything while aiming */}
-      {phase === 'aiming' && ringPos && (
-        <RingOverlay
-          cx={ringPos.cx}
-          cy={ringPos.cy}
-          maxR={ringPos.maxR}
-          speed={RING_SPEEDS[ringSpeed]}
-          onStop={handleRingStop}
-        />
       )}
 
       {/* Flying ball */}

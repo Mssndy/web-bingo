@@ -11,6 +11,7 @@ interface Props {
   onEasy: (name: string) => void;
   onChar: (name: string) => void;
   onMiniGame: (name: string) => void;
+  onRanking: () => void;
   stats: PlayerStats | null;
 }
 
@@ -25,7 +26,7 @@ interface ModeCard {
   onSelect: (name: string) => void;
 }
 
-export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, stats }: Props) {
+export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, onRanking, stats }: Props) {
   const [name, setName] = useState(stats?.name ?? 'かず');
 
   const trimmed = name.trim();
@@ -159,6 +160,22 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, o
             </button>
           ))}
         </div>
+      </div>
+
+      {/* Ranking button */}
+      <div className="w-full max-w-sm px-4">
+        <button
+          onClick={onRanking}
+          className="w-full flex items-center justify-center gap-2 py-3 rounded-2xl text-base font-black transition-all active:scale-95"
+          style={{
+            background: 'linear-gradient(135deg, #ffd93d 0%, #ff922b 100%)',
+            color: 'white',
+            border: '3px solid rgba(255,217,61,0.5)',
+            boxShadow: '0 4px 14px rgba(255,217,61,0.35)',
+          }}
+        >
+          🏆 ランキング
+        </button>
       </div>
 
       {/* Stats */}

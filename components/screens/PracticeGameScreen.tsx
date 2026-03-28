@@ -5,6 +5,7 @@ import type { MathProblem, PracticeSettings } from '@/lib/types';
 import { generateProblem } from '@/lib/math-problems';
 import { getBestStreak, saveBestStreak } from '@/lib/storage';
 import { playCorrect, playWrong, playNewBest } from '@/lib/sounds';
+import { saveRankEntry } from '@/lib/ranking';
 import ElapsedTimer from '@/components/ui/ElapsedTimer';
 
 interface Props {
@@ -87,7 +88,10 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
       {/* Header row */}
       <div className="flex items-center justify-between">
         <button
-          onClick={onHome}
+          onClick={() => {
+            saveRankEntry({ playerName, score: bestStreak, mode: 'practice' });
+            onHome();
+          }}
           className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform"
         >
           🏠 ホーム

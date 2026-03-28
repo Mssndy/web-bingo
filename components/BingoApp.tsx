@@ -29,6 +29,7 @@ import CharPracticeGameScreen from '@/components/screens/CharPracticeGameScreen'
 import JankenGameScreen from '@/components/screens/JankenGameScreen';
 import TossGameScreen from '@/components/screens/TossGameScreen';
 import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
+import RankingScreen from '@/components/screens/RankingScreen';
 import {
   generateCharBingoCard,
   createInitialCharGameState,
@@ -317,7 +318,15 @@ export default function BingoApp() {
   return (
     <main className="max-w-lg mx-auto w-full">
       {screen === 'name-entry' && (
-        <NameEntryScreen onStart={handleStart} onPractice={handleGoToPractice} onEasy={handleGoToEasy} onChar={handleGoToChar} onMiniGame={handleGoToMiniGamePlaza} stats={stats} />
+        <NameEntryScreen
+          onStart={handleStart}
+          onPractice={handleGoToPractice}
+          onEasy={handleGoToEasy}
+          onChar={handleGoToChar}
+          onMiniGame={handleGoToMiniGamePlaza}
+          onRanking={() => setScreen('ranking')}
+          stats={stats}
+        />
       )}
       {screen === 'settings' && (
         <SettingsScreen
@@ -438,6 +447,9 @@ export default function BingoApp() {
           playerName={playerName}
           onHome={() => setScreen('minigame-plaza')}
         />
+      )}
+      {screen === 'ranking' && (
+        <RankingScreen onHome={() => setScreen('name-entry')} />
       )}
     </main>
   );

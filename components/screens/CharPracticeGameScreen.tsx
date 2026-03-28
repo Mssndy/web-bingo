@@ -6,6 +6,7 @@ import { getCharSet, CHAR_LOCALE, ROMAJI, generateCharChoices } from '@/lib/char
 import { speakChar } from '@/lib/speech';
 import { getCharBestStreak, saveCharBestStreak } from '@/lib/storage';
 import { playCorrect, playWrong, playNewBest } from '@/lib/sounds';
+import { saveRankEntry } from '@/lib/ranking';
 import ElapsedTimer from '@/components/ui/ElapsedTimer';
 
 interface Props {
@@ -95,7 +96,10 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
       {/* Header */}
       <div className="flex items-center justify-between">
         <button
-          onClick={onHome}
+          onClick={() => {
+            saveRankEntry({ playerName, score: bestStreak, mode: 'char-practice' });
+            onHome();
+          }}
           className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform"
         >
           🏠 ホーム
