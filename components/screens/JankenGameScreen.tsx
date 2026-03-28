@@ -1,165 +1,289 @@
 'use client';
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { getRandomHand, judgeJanken, getRelationshipText, HAND_LABEL, HAND_OBJECT } from '@/lib/janken';
+import { getRandomHand, judgeJanken, getRelationshipText, HAND_LABEL } from '@/lib/janken';
 import type { JankenHand, JankenResult } from '@/lib/janken';
-import { playJankenPon, playJankenWin, playJankenLose, playJankenDraw } from '@/lib/sounds';
+import {
+  playJankenJan, playJankenKen, playJankenPonFinal,
+  playJankenWin, playJankenLose, playJankenDraw,
+} from '@/lib/sounds';
 
 interface Props {
   playerName: string;
   onHome: () => void;
 }
 
-type Phase = 'select' | 'countdown' | 'reveal';
+type Phase = 'ready' | 'countdown' | 'pick' | 'battle' | 'reveal';
+type BattleStep = 'enter' | 'shake' | 'transform' | 'done';
 
-interface Round {
+interface PickResult {
   playerHand: JankenHand;
   cpuHand: JankenHand;
   result: JankenResult;
-  key: number;
 }
 
-// ── SVG Object Illustrations ─────────────────────────────────────────────────
+// ── SVG Hand Illustrations ────────────────────────────────────────────────────
+// All hands use a consistent warm-yellow skin palette and face left (flip CPU).
 
-function RockIcon({ size = 88 }: { size?: number }) {
+const S  = '#FBBF24';   // main skin
+const SD = '#D97706';   // dark skin / line
+const SH = 'rgba(255,255,255,0.26)';  // shine
+
+/** グー: 閉じたこぶし */
+function GuuHand({ size = 90, flip = false }: { size?: number; flip?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      <ellipse cx="50" cy="86" rx="34" ry="7" fill="rgba(0,0,0,0.12)" />
-      <path
-        d="M20 63 Q15 45 24 30 Q33 14 50 14 Q70 14 80 30 Q90 47 84 63 Q78 78 62 81 Q44 84 28 77 Z"
-        fill="#9E9589"
-      />
-      <path
-        d="M22 60 Q17 44 26 30 Q35 14 52 14 Q72 14 82 30 Q90 46 84 60 Q78 75 62 78 Q44 81 28 74 Z"
-        fill="#B8B2AB"
-      />
-      <ellipse cx="40" cy="40" rx="14" ry="9" fill="rgba(255,255,255,0.30)" transform="rotate(-18 40 40)" />
-      <path d="M44 63 Q50 58 57 62" stroke="rgba(0,0,0,0.17)" strokeWidth="2.5" strokeLinecap="round" />
-      <path d="M35 73 Q42 68 50 71" stroke="rgba(0,0,0,0.12)" strokeWidth="2" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none"
+      style={flip ? { transform: 'scaleX(-1)', display: 'block' } : { display: 'block' }}>
+      <ellipse cx="50" cy="92" rx="26" ry="5" fill="rgba(0,0,0,0.10)" />
+      {/* wrist */}
+      <rect x="33" y="65" width="34" height="24" rx="8" fill={S} />
+      <rect x="33" y="65" width="34" height="9"  rx="5" fill={SD} opacity="0.18" />
+      {/* fist body */}
+      <path d="M18 62 Q15 44 22 30 Q31 15 50 15 Q69 15 78 30 Q85 44 82 62 Q80 74 64 77 Q50 80 36 77 Q22 74 18 62Z" fill={S} />
+      {/* knuckle row */}
+      <path d="M27 47 Q36 40 44 47 Q52 40 60 47 Q68 40 74 47" stroke={SD} strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      {/* thumb */}
+      <path d="M18 64 Q7 54 11 40 Q15 29 26 35 Q23 46 18 64Z" fill={S} />
+      <path d="M15 48 Q20 38 25 40" stroke={SD} strokeWidth="1.5" strokeLinecap="round" fill="none" />
+      {/* shine */}
+      <ellipse cx="40" cy="28" rx="13" ry="7" fill={SH} transform="rotate(-16 40 28)" />
     </svg>
   );
 }
 
-function ScissorsIcon({ size = 88 }: { size?: number }) {
+/** チョキ: 人差し指+中指を立てたV字 */
+function ChokiHand({ size = 90, flip = false }: { size?: number; flip?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      {/* Left handle */}
-      <circle cx="24" cy="24" r="17" fill="#FF7070" />
-      <circle cx="24" cy="24" r="17" stroke="#CC3333" strokeWidth="2.5" />
-      <circle cx="24" cy="24" r="9"  fill="white" />
-      {/* Right handle */}
-      <circle cx="76" cy="24" r="17" fill="#FF7070" />
-      <circle cx="76" cy="24" r="17" stroke="#CC3333" strokeWidth="2.5" />
-      <circle cx="76" cy="24" r="9"  fill="white" />
-      {/* Left blade */}
-      <line x1="30" y1="38" x2="52" y2="86" stroke="#9A9A9A" strokeWidth="9"  strokeLinecap="round" />
-      <line x1="30" y1="38" x2="52" y2="86" stroke="#C8C8C8" strokeWidth="5"  strokeLinecap="round" />
-      {/* Right blade */}
-      <line x1="70" y1="38" x2="48" y2="86" stroke="#9A9A9A" strokeWidth="9"  strokeLinecap="round" />
-      <line x1="70" y1="38" x2="48" y2="86" stroke="#D8D8D8" strokeWidth="5"  strokeLinecap="round" />
-      {/* Pivot */}
-      <circle cx="50" cy="60" r="7" fill="#777" />
-      <circle cx="50" cy="60" r="3.5" fill="#AAA" />
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none"
+      style={flip ? { transform: 'scaleX(-1)', display: 'block' } : { display: 'block' }}>
+      <ellipse cx="50" cy="92" rx="26" ry="5" fill="rgba(0,0,0,0.10)" />
+      {/* wrist */}
+      <rect x="33" y="65" width="34" height="24" rx="8" fill={S} />
+      <rect x="33" y="65" width="34" height="9"  rx="5" fill={SD} opacity="0.18" />
+      {/* lower palm / knuckle base */}
+      <path d="M24 67 Q22 55 26 48 Q36 52 50 52 Q64 52 74 48 Q78 55 76 67Z" fill={S} />
+      {/* index finger */}
+      <rect x="33" y="13" width="14" height="44" rx="7" fill={S} />
+      <ellipse cx="40" cy="23" rx="4" ry="8" fill={SH} />
+      <line x1="36" y1="40" x2="46" y2="40" stroke={SD} strokeWidth="1.5" opacity="0.5" />
+      {/* middle finger */}
+      <rect x="51" y="10" width="14" height="45" rx="7" fill={S} />
+      <ellipse cx="58" cy="22" rx="4" ry="8" fill={SH} />
+      <line x1="54" y1="38" x2="64" y2="38" stroke={SD} strokeWidth="1.5" opacity="0.5" />
+      {/* ring + pinky (curled) */}
+      <path d="M66 52 Q76 46 78 56 Q76 66 66 66Z" fill={SD} opacity="0.25" />
+      {/* thumb */}
+      <path d="M24 62 Q12 54 15 41 Q19 31 28 37 Q25 48 24 62Z" fill={S} />
+      {/* palm knuckle row */}
+      <path d="M26 54 Q36 50 50 49 Q64 50 74 54" stroke={SD} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.5" />
     </svg>
   );
 }
 
-function PaperIcon({ size = 88 }: { size?: number }) {
+/** パー: 5本指を広げた開いた手 */
+function PaaHand({ size = 90, flip = false }: { size?: number; flip?: boolean }) {
   return (
-    <svg width={size} height={size} viewBox="0 0 100 100" fill="none">
-      {/* Shadow */}
-      <rect x="23" y="18" width="60" height="70" rx="5" fill="rgba(0,0,0,0.09)" />
-      {/* Sheet */}
-      <rect x="18" y="13" width="60" height="70" rx="5" fill="#FFFDE7" />
-      <rect x="18" y="13" width="60" height="70" rx="5" stroke="#DDD080" strokeWidth="1.5" />
-      {/* Folded corner */}
-      <path d="M62 13 L78 29 L62 29 Z" fill="#EAD970" />
-      <path d="M62 13 L78 29" stroke="#C8B840" strokeWidth="1.5" />
-      {/* Writing lines */}
-      <line x1="26" y1="44" x2="70" y2="44" stroke="#D8C860" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="26" y1="56" x2="70" y2="56" stroke="#D8C860" strokeWidth="2.5" strokeLinecap="round" />
-      <line x1="26" y1="68" x2="57" y2="68" stroke="#D8C860" strokeWidth="2.5" strokeLinecap="round" />
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none"
+      style={flip ? { transform: 'scaleX(-1)', display: 'block' } : { display: 'block' }}>
+      <ellipse cx="50" cy="92" rx="26" ry="5" fill="rgba(0,0,0,0.10)" />
+      {/* wrist */}
+      <rect x="33" y="67" width="34" height="22" rx="8" fill={S} />
+      <rect x="33" y="67" width="34" height="9"  rx="5" fill={SD} opacity="0.18" />
+      {/* palm */}
+      <path d="M20 70 Q18 57 22 50 Q36 54 50 54 Q64 54 78 50 Q82 57 80 70Z" fill={S} />
+      {/* pinky */}
+      <rect x="18" y="20" width="13" height="40" rx="6.5" fill={S} />
+      <ellipse cx="25" cy="29" rx="4" ry="8" fill={SH} />
+      {/* ring */}
+      <rect x="33" y="13" width="13" height="45" rx="6.5" fill={S} />
+      <ellipse cx="40" cy="22" rx="4" ry="9" fill={SH} />
+      {/* middle */}
+      <rect x="48" y="10" width="13" height="46" rx="6.5" fill={S} />
+      <ellipse cx="55" cy="20" rx="4" ry="9" fill={SH} />
+      {/* index */}
+      <rect x="63" y="14" width="13" height="44" rx="6.5" fill={S} />
+      <ellipse cx="70" cy="24" rx="4" ry="8" fill={SH} />
+      {/* thumb */}
+      <path d="M20 66 Q8 56 11 40 Q15 28 26 36 Q22 50 20 66Z" fill={S} />
+      {/* knuckle row */}
+      <path d="M20 56 Q35 51 50 50 Q65 51 80 56" stroke={SD} strokeWidth="2" strokeLinecap="round" fill="none" opacity="0.5" />
     </svg>
   );
 }
 
-const ICONS: Record<JankenHand, (props: { size?: number }) => React.ReactElement> = {
-  guu:   RockIcon,
-  choki: ScissorsIcon,
-  paa:   PaperIcon,
+/** ？手: カウントダウン中の謎の手（こぶし） */
+function MysteryHand({ size = 90, flip = false }: { size?: number; flip?: boolean }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 100 100" fill="none"
+      style={flip ? { transform: 'scaleX(-1)', display: 'block' } : { display: 'block' }}>
+      <ellipse cx="50" cy="92" rx="26" ry="5" fill="rgba(0,0,0,0.10)" />
+      <rect x="33" y="65" width="34" height="24" rx="8" fill="#94a3b8" />
+      <rect x="33" y="65" width="34" height="9"  rx="5" fill="#64748b" opacity="0.30" />
+      <path d="M18 62 Q15 44 22 30 Q31 15 50 15 Q69 15 78 30 Q85 44 82 62 Q80 74 64 77 Q50 80 36 77 Q22 74 18 62Z" fill="#94a3b8" />
+      <path d="M27 47 Q36 40 44 47 Q52 40 60 47 Q68 40 74 47" stroke="#64748b" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+      <path d="M18 64 Q7 54 11 40 Q15 29 26 35 Q23 46 18 64Z" fill="#94a3b8" />
+      <ellipse cx="40" cy="28" rx="13" ry="7" fill="rgba(255,255,255,0.22)" transform="rotate(-16 40 28)" />
+      {/* ? mark */}
+      <text x="50" y="58" textAnchor="middle" fontSize="26" fontWeight="900" fill="rgba(255,255,255,0.70)">？</text>
+    </svg>
+  );
+}
+
+const HAND_COMPONENT: Record<JankenHand, typeof GuuHand> = {
+  guu:   GuuHand,
+  choki: ChokiHand,
+  paa:   PaaHand,
 };
 
-// ── Style config ─────────────────────────────────────────────────────────────
+// ── Style / Config ────────────────────────────────────────────────────────────
 
 const HAND_BG: Record<JankenHand, string> = {
-  guu:   'linear-gradient(135deg, #a8a29e 0%, #6b7280 100%)',
-  choki: 'linear-gradient(135deg, #fc8181 0%, #e53e3e 100%)',
-  paa:   'linear-gradient(135deg, #fde68a 0%, #d97706 100%)',
+  guu:   'linear-gradient(145deg, #a1a1aa 0%, #52525b 100%)',
+  choki: 'linear-gradient(145deg, #f87171 0%, #b91c1c 100%)',
+  paa:   'linear-gradient(145deg, #fde68a 0%, #b45309 100%)',
 };
 
-const HAND_BORDER: Record<JankenHand, string> = {
-  guu:   'rgba(107,114,128,0.7)',
-  choki: 'rgba(229,62,62,0.7)',
-  paa:   'rgba(217,119,6,0.7)',
+const RESULT_CFG: Record<JankenResult, { label: string; emoji: string; bg: string }> = {
+  win:  { label: 'やった！かった！', emoji: '🎉', bg: 'linear-gradient(135deg, #34d399 0%, #059669 100%)' },
+  lose: { label: 'おしい！まけた！', emoji: '💪', bg: 'linear-gradient(135deg, #fb923c 0%, #c2410c 100%)' },
+  draw: { label: 'あいこ！',         emoji: '🤝', bg: 'linear-gradient(135deg, #60a5fa 0%, #2563eb 100%)' },
 };
 
-const RESULT_CONFIG: Record<JankenResult, { label: string; emoji: string; bg: string; border: string }> = {
-  win:  { label: 'やった！かった！', emoji: '🎉', bg: 'linear-gradient(135deg, #68d391 0%, #38a169 100%)', border: 'rgba(56,161,105,0.9)' },
-  lose: { label: 'おしい！まけた！', emoji: '💪', bg: 'linear-gradient(135deg, #fc8181 0%, #e05c2a 100%)', border: 'rgba(224,92,42,0.9)' },
-  draw: { label: 'あいこ！',         emoji: '🤝', bg: 'linear-gradient(135deg, #63b3ed 0%, #3182ce 100%)', border: 'rgba(49,130,206,0.9)' },
-};
+// ── HandCard component ────────────────────────────────────────────────────────
 
-const COUNTDOWN_TEXTS = ['', 'じゃん...', 'けん...', 'ポン！'];
+function HandCard({
+  hand,
+  label,
+  revealed,
+  animState,
+  flip = false,
+}: {
+  hand: JankenHand | null;
+  label: string;
+  revealed: boolean;
+  animState: BattleStep | null;
+  flip?: boolean;
+}) {
+  const bg = hand && revealed
+    ? HAND_BG[hand]
+    : 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)';
 
-// ── Component ────────────────────────────────────────────────────────────────
+  const HandComp = hand && revealed ? HAND_COMPONENT[hand] : null;
+
+  const cardAnimation = (() => {
+    if (animState === 'enter')     return 'janken-object-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both';
+    if (animState === 'shake')     return 'janken-battle-shake 0.6s ease-in-out 3';
+    if (animState === 'transform') return 'janken-hand-transform 0.55s cubic-bezier(0.34,1.56,0.64,1) both';
+    if (animState === 'done') {
+      if (!hand) return undefined;
+      // result animations set externally on parent
+      return undefined;
+    }
+    return undefined;
+  })();
+
+  return (
+    <div className="flex flex-col items-center gap-1.5">
+      <p className="text-xs font-black text-gray-400 tracking-wide">{label}</p>
+      <div
+        className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
+        style={{
+          background: bg,
+          border: '3px solid rgba(255,255,255,0.3)',
+          animation: cardAnimation,
+        }}
+      >
+        {HandComp
+          ? <HandComp size={80} flip={flip} />
+          : <MysteryHand size={80} flip={flip} />
+        }
+      </div>
+      {hand && revealed && (
+        <p
+          className="text-sm font-black text-gray-600"
+          style={{ animation: 'janken-explanation 0.3s ease 0.3s both', opacity: 0 }}
+        >
+          {HAND_LABEL[hand]}
+        </p>
+      )}
+    </div>
+  );
+}
+
+// ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function JankenGameScreen({ playerName, onHome }: Props) {
-  const [phase, setPhase]               = useState<Phase>('select');
-  const [countdownStep, setCountdownStep] = useState(0);
-  const [round, setRound]               = useState<Round | null>(null);
-  const [roundKey, setRoundKey]         = useState(0);
-  const [score, setScore]               = useState({ win: 0, lose: 0, draw: 0 });
-  const soundPlayedForKey               = useRef(-1);
+  const [phase, setPhase]           = useState<Phase>('ready');
+  const [beat, setBeat]             = useState<0 | 1 | 2 | 3>(0);  // 1=じゃん 2=けん 3=ぽん
+  const [pickResult, setPickResult] = useState<PickResult | null>(null);
+  const [battleStep, setBattleStep] = useState<BattleStep>('enter');
+  const [score, setScore]           = useState({ win: 0, lose: 0, draw: 0 });
+  const pickTimeoutRef              = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const handleSelect = useCallback((hand: JankenHand) => {
-    const cpuHand = getRandomHand();
-    const result  = judgeJanken(hand, cpuHand);
-    const key     = roundKey + 1;
-    setRound({ playerHand: hand, cpuHand, result, key });
-    setRoundKey(key);
-    setScore(s => ({ ...s, [result]: s[result] + 1 }));
-    setPhase('countdown');
-    setCountdownStep(0);
-    playJankenPon();
-  }, [roundKey]);
-
-  // Countdown visual sequence (synced to the じゃん・けん・ポン audio timings)
+  // ── Countdown beats ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (phase !== 'countdown') return;
-    const t1 = setTimeout(() => setCountdownStep(1),   50);
-    const t2 = setTimeout(() => setCountdownStep(2),  450);
-    const t3 = setTimeout(() => setCountdownStep(3),  850);
-    const t4 = setTimeout(() => setPhase('reveal'),  1250);
+    const t1 = setTimeout(() => { setBeat(1); playJankenJan(); },       80);
+    const t2 = setTimeout(() => { setBeat(2); playJankenKen(); },      480);
+    const t3 = setTimeout(() => { setBeat(3); playJankenPonFinal(); }, 880);
+    const t4 = setTimeout(() => setPhase('pick'),                      1050);
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
   }, [phase]);
 
-  // Play result sound once per round on reveal
+  // ── Auto-pick timeout during pick phase ─────────────────────────────────────
   useEffect(() => {
-    if (phase !== 'reveal' || !round) return;
-    if (soundPlayedForKey.current === round.key) return;
-    soundPlayedForKey.current = round.key;
-    if (round.result === 'win')       playJankenWin();
-    else if (round.result === 'lose') playJankenLose();
-    else                              playJankenDraw();
-  }, [phase, round]);
+    if (phase !== 'pick') return;
+    pickTimeoutRef.current = setTimeout(() => {
+      // Time's up → random pick
+      commitPick(getRandomHand());
+    }, 1800);
+    return () => { if (pickTimeoutRef.current) clearTimeout(pickTimeoutRef.current); };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase]);
 
-  const handleAgain = useCallback(() => {
-    setPhase('select');
-    setRound(null);
-    setCountdownStep(0);
+  // ── Battle animation sequence ────────────────────────────────────────────────
+  useEffect(() => {
+    if (phase !== 'battle' || !pickResult) return;
+
+    setBattleStep('enter');
+    const t1 = setTimeout(() => setBattleStep('shake'),     400);
+    // shake runs for 0.6s × 3 = 1800ms
+    const t2 = setTimeout(() => setBattleStep('transform'), 2200);
+    const t3 = setTimeout(() => setBattleStep('done'),      2800);
+    const t4 = setTimeout(() => {
+      // Play result sound
+      if (pickResult.result === 'win')       playJankenWin();
+      else if (pickResult.result === 'lose') playJankenLose();
+      else                                   playJankenDraw();
+      setPhase('reveal');
+    }, 3000);
+    return () => [t1, t2, t3, t4].forEach(clearTimeout);
+  }, [phase, pickResult]);
+
+  // ── Pick handler ─────────────────────────────────────────────────────────────
+  const commitPick = useCallback((hand: JankenHand) => {
+    if (pickTimeoutRef.current) clearTimeout(pickTimeoutRef.current);
+    const cpuHand = getRandomHand();
+    const result  = judgeJanken(hand, cpuHand);
+    setPickResult({ playerHand: hand, cpuHand, result });
+    setScore(s => ({ ...s, [result]: s[result] + 1 }));
+    setPhase('battle');
   }, []);
 
-  // ── Render ──────────────────────────────────────────────────────────────────
+  const handleStartCountdown = useCallback(() => {
+    setBeat(0);
+    setPickResult(null);
+    setPhase('countdown');
+  }, []);
+
+  const handleAgain = useCallback(() => {
+    setBeat(0);
+    setPickResult(null);
+    setBattleStep('enter');
+    setPhase('ready');
+  }, []);
+
+  // ── Render ───────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col items-center gap-4 py-5 animate-[fade-in_0.3s_ease_both]">
@@ -174,223 +298,278 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
           🏠
         </button>
         <div className="text-center">
-          <h2 className="text-xl font-black text-gray-700">じゃんけん モード</h2>
-          <p className="text-xs text-gray-400 font-bold">{playerName} ✊✂️📄</p>
+          <h2 className="text-xl font-black text-gray-700">じゃんけん</h2>
+          <p className="text-xs text-gray-400 font-bold">{playerName} ✊✌️🖐️</p>
         </div>
         <div className="w-10" />
       </div>
 
-      {/* Score bar */}
+      {/* Score */}
       <div
         className="flex gap-5 text-center px-6 py-2 rounded-2xl"
         style={{ background: 'white', border: '2px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
       >
-        <div>
-          <p className="text-2xl font-black text-[var(--color-bingo-green)]">{score.win}</p>
-          <p className="text-xs text-gray-400 font-bold">かち</p>
-        </div>
-        <div className="text-gray-200 text-2xl self-center">|</div>
-        <div>
-          <p className="text-2xl font-black text-[var(--color-bingo-orange)]">{score.lose}</p>
-          <p className="text-xs text-gray-400 font-bold">まけ</p>
-        </div>
-        <div className="text-gray-200 text-2xl self-center">|</div>
-        <div>
-          <p className="text-2xl font-black text-[var(--color-bingo-blue)]">{score.draw}</p>
-          <p className="text-xs text-gray-400 font-bold">あいこ</p>
-        </div>
+        {[
+          { key: 'win',  label: 'かち',  color: 'var(--color-bingo-green)'  },
+          { key: 'lose', label: 'まけ',  color: 'var(--color-bingo-orange)' },
+          { key: 'draw', label: 'あいこ', color: 'var(--color-bingo-blue)'  },
+        ].map(({ key, label, color }, i) => (
+          <div key={key} className="flex items-center gap-3">
+            {i > 0 && <div className="text-gray-200 text-2xl">|</div>}
+            <div>
+              <p className="text-2xl font-black" style={{ color }}>
+                {score[key as keyof typeof score]}
+              </p>
+              <p className="text-xs text-gray-400 font-bold">{label}</p>
+            </div>
+          </div>
+        ))}
       </div>
 
-      {/* ── Select phase ── */}
-      {phase === 'select' && (
-        <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
-          {/* CPU mystery card */}
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-xs font-bold text-gray-400">CPU</p>
-            <div
-              className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-md"
-              style={{
-                background: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
-                border: '3px solid rgba(148,163,184,0.5)',
-              }}
-            >
-              <span className="text-5xl" style={{ filter: 'grayscale(1) opacity(0.5)' }}>？</span>
+      {/* ── READY phase ── */}
+      {phase === 'ready' && (
+        <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
+
+          {/* Neutral hands preview */}
+          <div className="flex items-end justify-center gap-10">
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs font-black text-gray-400">CPU</p>
+              <MysteryHand size={90} flip />
+            </div>
+            <div className="text-4xl font-black text-gray-200 pb-4">VS</div>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs font-black text-gray-400">{playerName}</p>
+              <MysteryHand size={90} />
             </div>
           </div>
 
-          <p className="text-lg font-black text-gray-600">てを えらんでね！</p>
+          <button
+            onClick={handleStartCountdown}
+            className="w-full py-5 rounded-3xl text-2xl font-black text-white shadow-xl active:scale-95 transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+              animation: 'float-bob-1 3s ease-in-out infinite',
+            }}
+          >
+            ✊ スタート！
+          </button>
 
-          {/* Hand selection buttons */}
+          <p className="text-xs text-gray-400 font-bold text-center">
+            「ぽん！」のあとに てを えらんでね！
+          </p>
+        </div>
+      )}
+
+      {/* ── COUNTDOWN phase ── */}
+      {phase === 'countdown' && (
+        <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
+
+          {/* Hands (mystery, shaking) */}
+          <div className="flex items-end justify-center gap-10">
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs font-black text-gray-400">CPU</p>
+              <div style={{ animation: beat >= 1 ? 'janken-battle-shake 0.42s ease-in-out infinite' : undefined }}>
+                <MysteryHand size={90} flip />
+              </div>
+            </div>
+            <div className="text-4xl font-black text-gray-200 pb-4">VS</div>
+            <div className="flex flex-col items-center gap-1">
+              <p className="text-xs font-black text-gray-400">{playerName}</p>
+              <div style={{ animation: beat >= 1 ? 'janken-battle-shake 0.42s ease-in-out infinite' : undefined }}>
+                <MysteryHand size={90} />
+              </div>
+            </div>
+          </div>
+
+          {/* Big beat text */}
+          <div className="h-24 flex items-center justify-center">
+            {beat === 1 && (
+              <p
+                key="jan"
+                className="text-7xl font-black text-gray-700"
+                style={{ animation: 'janken-countdown 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
+              >
+                じゃん
+              </p>
+            )}
+            {beat === 2 && (
+              <p
+                key="ken"
+                className="text-7xl font-black text-gray-700"
+                style={{ animation: 'janken-countdown 0.32s cubic-bezier(0.34,1.56,0.64,1) both' }}
+              >
+                けん
+              </p>
+            )}
+            {beat === 3 && (
+              <p
+                key="pon"
+                className="text-8xl font-black"
+                style={{
+                  color: 'var(--color-bingo-orange)',
+                  animation: 'janken-pon-burst 0.38s cubic-bezier(0.34,1.56,0.64,1) both',
+                  textShadow: '0 0 24px rgba(249,115,22,0.6)',
+                }}
+              >
+                ぽん！
+              </p>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* ── PICK phase ── */}
+      {phase === 'pick' && (
+        <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.15s_ease_both]">
+
+          <p
+            className="text-2xl font-black text-gray-700"
+            style={{ animation: 'janken-banner 0.3s cubic-bezier(0.34,1.56,0.64,1) both' }}
+          >
+            どれにする？⚡
+          </p>
+
           <div className="grid grid-cols-3 gap-3 w-full">
             {(['guu', 'choki', 'paa'] as JankenHand[]).map((hand, i) => {
-              const Icon = ICONS[hand];
+              const HandComp = HAND_COMPONENT[hand];
               return (
                 <button
                   key={hand}
-                  onClick={() => handleSelect(hand)}
-                  className="flex flex-col items-center gap-2 rounded-3xl py-4 px-2 shadow-lg active:scale-90 transition-all relative overflow-hidden"
+                  onClick={() => commitPick(hand)}
+                  className="flex flex-col items-center gap-2 rounded-3xl py-4 px-1 shadow-lg active:scale-90 transition-all relative overflow-hidden"
                   style={{
                     background: HAND_BG[hand],
-                    border: `3px solid ${HAND_BORDER[hand]}`,
-                    animation: `float-bob-${(i % 3) + 1} ${3.5 + i * 0.4}s ease-in-out infinite ${i * 0.6}s`,
+                    border: '3px solid rgba(255,255,255,0.35)',
+                    animation: `janken-pick-appear 0.4s cubic-bezier(0.34,1.56,0.64,1) ${i * 0.06}s both`,
                   }}
                 >
-                  <div className="absolute inset-0 rounded-3xl" style={{ background: 'linear-gradient(135deg, rgba(255,255,255,0.22) 0%, transparent 55%)' }} />
-                  <Icon size={64} />
+                  <div className="absolute inset-0 rounded-3xl"
+                    style={{ background: 'linear-gradient(135deg,rgba(255,255,255,0.20) 0%,transparent 55%)' }}
+                  />
+                  <HandComp size={68} />
                   <span className="text-sm font-black text-white drop-shadow relative z-10">
-                    {HAND_OBJECT[hand]}
-                  </span>
-                  <span className="text-[11px] text-white/80 font-bold relative z-10">
-                    ({HAND_LABEL[hand]})
+                    {HAND_LABEL[hand]}
                   </span>
                 </button>
               );
             })}
           </div>
-
-          {/* Strength relationship hint */}
-          <div
-            className="w-full rounded-2xl px-4 py-3 text-center"
-            style={{ background: 'white', border: '2px solid rgba(0,0,0,0.06)' }}
-          >
-            <p className="text-xs text-gray-500 font-bold leading-relaxed">
-              石 → はさみ　はさみ → 紙　紙 → 石
-            </p>
-            <p className="text-[11px] text-gray-400 mt-0.5">（→ は「かつ」いみ）</p>
-          </div>
         </div>
       )}
 
-      {/* ── Countdown phase ── */}
-      {phase === 'countdown' && round && (
-        <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
-          {/* CPU still hidden */}
-          <div className="flex flex-col items-center gap-1">
-            <p className="text-xs font-bold text-gray-400">CPU</p>
-            <div
-              className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-md"
-              style={{
-                background: 'linear-gradient(135deg, #e2e8f0 0%, #cbd5e1 100%)',
-                border: '3px solid rgba(148,163,184,0.5)',
-              }}
-            >
-              <span className="text-5xl" style={{ filter: 'grayscale(1) opacity(0.5)' }}>？</span>
-            </div>
+      {/* ── BATTLE phase ── */}
+      {phase === 'battle' && pickResult && (
+        <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
+
+          <div className="flex items-end justify-center gap-8">
+            {/* CPU */}
+            <HandCard
+              hand={pickResult.cpuHand}
+              label="CPU"
+              revealed={battleStep === 'transform' || battleStep === 'done'}
+              animState={battleStep}
+              flip
+            />
+            <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
+            {/* Player */}
+            <HandCard
+              hand={pickResult.playerHand}
+              label={playerName}
+              revealed={battleStep === 'transform' || battleStep === 'done'}
+              animState={battleStep}
+            />
           </div>
 
-          {/* Countdown text */}
-          {countdownStep > 0 && (
-            <div
-              key={countdownStep}
-              className="text-5xl font-black text-gray-700"
-              style={{ animation: 'janken-countdown 0.35s cubic-bezier(0.34,1.56,0.64,1) both' }}
-            >
-              {COUNTDOWN_TEXTS[countdownStep]}
-            </div>
+          {battleStep === 'shake' && (
+            <p className="text-xl font-black text-gray-500 animate-pulse">…どっちが かつ？！</p>
           )}
-
-          {/* Player's chosen hand (dim, waiting) */}
-          <div className="flex flex-col items-center gap-1 opacity-60">
-            <p className="text-xs font-bold text-gray-400">{playerName}</p>
-            <div
-              className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-md"
-              style={{
-                background: HAND_BG[round.playerHand],
-                border: `3px solid ${HAND_BORDER[round.playerHand]}`,
-              }}
+          {(battleStep === 'transform' || battleStep === 'done') && (
+            <p
+              className="text-xl font-black text-gray-600"
+              style={{ animation: 'janken-explanation 0.35s ease both' }}
             >
-              {(() => { const Icon = ICONS[round.playerHand]; return <Icon size={72} />; })()}
-            </div>
-            <p className="text-sm font-black text-gray-600">{HAND_OBJECT[round.playerHand]}</p>
-          </div>
+              {pickResult.result !== 'draw'
+                ? getRelationshipText(
+                    pickResult.result === 'win' ? pickResult.playerHand : pickResult.cpuHand,
+                    pickResult.result === 'win' ? pickResult.cpuHand    : pickResult.playerHand,
+                  )
+                : 'おなじ手！'}
+            </p>
+          )}
         </div>
       )}
 
-      {/* ── Reveal phase ── */}
-      {phase === 'reveal' && round && (
-        <div
-          key={`reveal-${round.key}`}
-          className="flex flex-col items-center gap-4 w-full max-w-sm px-4"
-        >
-          {/* Hands side by side */}
-          <div className="flex items-center justify-center gap-4 w-full">
+      {/* ── REVEAL phase ── */}
+      {phase === 'reveal' && pickResult && (
+        <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
+
+          {/* Both hands with win/lose glow */}
+          <div className="flex items-end justify-center gap-8">
             {/* CPU hand */}
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-bold text-gray-400">CPU</p>
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-xs font-black text-gray-400">CPU</p>
               <div
-                className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-lg"
+                className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
                 style={{
-                  background: HAND_BG[round.cpuHand],
-                  border: `3px solid ${HAND_BORDER[round.cpuHand]}`,
+                  background: HAND_BG[pickResult.cpuHand],
+                  border: '3px solid rgba(255,255,255,0.3)',
                   animation: (() => {
-                    const pop = 'janken-object-in 0.45s cubic-bezier(0.34,1.56,0.64,1) both';
-                    if (round.result === 'lose') return `${pop}, janken-win 0.7s 0.45s ease-out both`;
-                    if (round.result === 'win')  return `${pop}, janken-lose 0.6s 0.45s ease-in-out both`;
-                    return `${pop}, janken-draw 1.2s 0.45s ease-in-out infinite`;
+                    if (pickResult.result === 'lose') return 'janken-winner-bounce 0.8s ease-in-out 3';
+                    if (pickResult.result === 'win')  return 'janken-loser-fade 0.5s ease forwards';
+                    return 'janken-draw 1.2s ease-in-out infinite';
                   })(),
                 }}
               >
-                {(() => { const Icon = ICONS[round.cpuHand]; return <Icon size={72} />; })()}
+                {(() => { const C = HAND_COMPONENT[pickResult.cpuHand]; return <C size={80} flip />; })()}
               </div>
-              <p className="text-sm font-black text-gray-600">{HAND_OBJECT[round.cpuHand]}</p>
+              <p className="text-sm font-black text-gray-600">{HAND_LABEL[pickResult.cpuHand]}</p>
             </div>
 
-            {/* VS */}
-            <div className="text-2xl font-black text-gray-300 pb-6">VS</div>
+            <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
 
             {/* Player hand */}
-            <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-bold text-gray-400">{playerName}</p>
+            <div className="flex flex-col items-center gap-1.5">
+              <p className="text-xs font-black text-gray-400">{playerName}</p>
               <div
-                className="w-28 h-28 rounded-3xl flex items-center justify-center shadow-lg"
+                className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
                 style={{
-                  background: HAND_BG[round.playerHand],
-                  border: `3px solid ${HAND_BORDER[round.playerHand]}`,
+                  background: HAND_BG[pickResult.playerHand],
+                  border: '3px solid rgba(255,255,255,0.3)',
                   animation: (() => {
-                    const pop = 'janken-object-in 0.45s cubic-bezier(0.34,1.56,0.64,1) 0.1s both';
-                    if (round.result === 'win')  return `${pop}, janken-win 0.7s 0.55s ease-out both`;
-                    if (round.result === 'lose') return `${pop}, janken-lose 0.6s 0.55s ease-in-out both`;
-                    return `${pop}, janken-draw 1.2s 0.55s ease-in-out infinite`;
+                    if (pickResult.result === 'win')  return 'janken-winner-bounce 0.8s ease-in-out 3';
+                    if (pickResult.result === 'lose') return 'janken-loser-fade 0.5s ease forwards';
+                    return 'janken-draw 1.2s ease-in-out infinite';
                   })(),
                 }}
               >
-                {(() => { const Icon = ICONS[round.playerHand]; return <Icon size={72} />; })()}
+                {(() => { const C = HAND_COMPONENT[pickResult.playerHand]; return <C size={80} />; })()}
               </div>
-              <p className="text-sm font-black text-gray-600">{HAND_OBJECT[round.playerHand]}</p>
+              <p className="text-sm font-black text-gray-600">{HAND_LABEL[pickResult.playerHand]}</p>
             </div>
           </div>
 
-          {/* Relationship explanation */}
-          {round.result !== 'draw' && (
+          {/* Relationship text */}
+          {pickResult.result !== 'draw' && (
             <p
               className="text-base font-black text-gray-600 text-center"
-              style={{ animation: 'janken-explanation 0.4s ease 0.6s both' }}
+              style={{ animation: 'janken-explanation 0.4s ease 0.2s both', opacity: 0 }}
             >
               {getRelationshipText(
-                round.result === 'win' ? round.playerHand : round.cpuHand,
-                round.result === 'win' ? round.cpuHand    : round.playerHand,
+                pickResult.result === 'win' ? pickResult.playerHand : pickResult.cpuHand,
+                pickResult.result === 'win' ? pickResult.cpuHand    : pickResult.playerHand,
               )}
-            </p>
-          )}
-          {round.result === 'draw' && (
-            <p
-              className="text-base font-black text-gray-500 text-center"
-              style={{ animation: 'janken-explanation 0.4s ease 0.5s both' }}
-            >
-              おなじ手！もう一度だ！
             </p>
           )}
 
           {/* Result banner */}
           {(() => {
-            const cfg = RESULT_CONFIG[round.result];
+            const cfg = RESULT_CFG[pickResult.result];
             return (
               <div
-                className="w-full rounded-3xl px-6 py-3 text-center shadow-lg"
+                className="w-full rounded-3xl px-6 py-3.5 text-center shadow-lg"
                 style={{
                   background: cfg.bg,
-                  border: `3px solid ${cfg.border}`,
-                  animation: 'janken-banner 0.5s cubic-bezier(0.34,1.56,0.64,1) 0.55s both',
+                  animation: 'janken-banner 0.5s cubic-bezier(0.34,1.56,0.64,1) both',
                 }}
               >
                 <p className="text-2xl font-black text-white drop-shadow">
@@ -400,13 +579,13 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
             );
           })()}
 
-          {/* Again button */}
           <button
             onClick={handleAgain}
             className="w-full py-4 rounded-3xl text-xl font-black text-white shadow-lg active:scale-95 transition-all"
             style={{
               background: 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
-              animation: 'fade-in 0.3s ease 0.9s both',
+              animation: 'fade-in 0.3s ease 0.5s both',
+              opacity: 0,
             }}
           >
             もう一度！✊

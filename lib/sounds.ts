@@ -177,7 +177,36 @@ export function playDraw(): void {
   tone(ac, 880, t + 0.07, 0.08, 'triangle', 0.18);
 }
 
-/** じゃんけんカウントダウン: じゃん・けん・ぽん！（3拍） */
+/** じゃんけん: 「じゃん」第1拍 */
+export function playJankenJan(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.04, 0.13);
+  tone(ac, 392, t, 0.09, 'triangle', 0.26);
+}
+
+/** じゃんけん: 「けん」第2拍 */
+export function playJankenKen(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.04, 0.13);
+  tone(ac, 440, t, 0.09, 'triangle', 0.26);
+}
+
+/** じゃんけん: 「ぽん！」最終拍（一番大きい） */
+export function playJankenPonFinal(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.50);
+  snap(ac, t, 0.08, 0.22);
+  tone(ac, 523, t,        0.28, 'triangle', 0.34);
+  tone(ac, 659, t + 0.09, 0.18, 'sine',     0.16);
+}
+
+/** じゃんけんカウントダウン: じゃん・けん・ぽん！（3拍・まとめ版） */
 export function playJankenPon(): void {
   const ac = makeCtx();
   if (!ac) return;

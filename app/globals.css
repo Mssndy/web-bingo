@@ -147,6 +147,55 @@
   100% { opacity: 1; transform: translateY(0); }
 }
 
+/* 戦うアニメーション: 手を上下に揺らす（じゃんけん中） */
+@keyframes janken-battle-shake {
+  0%,100% { transform: translateY(0)    rotate(0deg); }
+  15%     { transform: translateY(-18px) rotate(-4deg); }
+  30%     { transform: translateY(0)    rotate(0deg); }
+  45%     { transform: translateY(-14px) rotate(3deg); }
+  60%     { transform: translateY(0)    rotate(-1deg); }
+  75%     { transform: translateY(-10px) rotate(2deg); }
+  90%     { transform: translateY(0)    rotate(0deg); }
+}
+
+/* 手が変身するとき: スケールで「ムギュッ」と縮んでから出てくる */
+@keyframes janken-hand-transform {
+  0%   { transform: scale(1); }
+  35%  { transform: scale(0.05) rotate(15deg); }
+  65%  { transform: scale(1.25) rotate(-5deg); }
+  82%  { transform: scale(0.92) rotate(2deg); }
+  100% { transform: scale(1)   rotate(0deg); }
+}
+
+/* ぽん！の超大テキスト入場 */
+@keyframes janken-pon-burst {
+  0%   { transform: scale(0.3)  rotate(-8deg); opacity: 0; }
+  50%  { transform: scale(1.30) rotate(4deg);  opacity: 1; }
+  75%  { transform: scale(0.95) rotate(-1deg); opacity: 1; }
+  100% { transform: scale(1.0)  rotate(0deg);  opacity: 1; }
+}
+
+/* 勝者の手が弾む */
+@keyframes janken-winner-bounce {
+  0%,100% { transform: scale(1.0) translateY(0); }
+  30%     { transform: scale(1.3) translateY(-12px) rotate(-5deg); }
+  60%     { transform: scale(1.2) translateY(-6px) rotate(3deg); }
+  80%     { transform: scale(1.25) translateY(-8px); }
+}
+
+/* 敗者の手が消えていく */
+@keyframes janken-loser-fade {
+  0%   { transform: scale(1)    rotate(0deg); opacity: 1; }
+  100% { transform: scale(0.65) rotate(-8deg); opacity: 0.3; }
+}
+
+/* ぽん！後の選択ボタン出現 */
+@keyframes janken-pick-appear {
+  0%   { transform: translateY(20px) scale(0.8); opacity: 0; }
+  70%  { transform: translateY(-4px) scale(1.06); opacity: 1; }
+  100% { transform: translateY(0)   scale(1);    opacity: 1; }
+}
+
 /* ── たまなげビンゴ ────────────────────────────────────────────────────────── */
 
 /* Flying ball: parabolic arc from launch origin to target cell.
