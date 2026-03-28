@@ -1,6 +1,7 @@
 'use client';
 
 import type { CharGameSettings } from '@/lib/types';
+import Button from '@/components/ui/Button';
 
 interface Props {
   playerName: string;
@@ -17,14 +18,14 @@ const CONTENT_TYPES: Array<{ value: CharGameSettings['contentType']; label: stri
   { value: 'alphabet', label: 'アルファベット', emoji: 'A' },
 ];
 
-const BINGO_MODES: Array<{ value: CharGameSettings['bingoSubMode']; label: string; desc: string }> = [
-  { value: 'char-show', label: '文字が出る', desc: 'もじをみてさがそう' },
-  { value: 'sound-match', label: '音でさがす', desc: 'きいてもじをさがそう' },
+const BINGO_MODES: Array<{ value: CharGameSettings['bingoSubMode']; emoji: string; label: string; desc: string }> = [
+  { value: 'char-show', emoji: '👁️', label: '文字が出る', desc: 'もじをみてさがそう' },
+  { value: 'sound-match', emoji: '🔊', label: '音でさがす', desc: 'きいてさがそう' },
 ];
 
-const CARD_MODES: Array<{ value: CharGameSettings['cardMode']; label: string; desc: string }> = [
-  { value: 'web', label: 'がめんカード', desc: 'タップしてあなをあける' },
-  { value: 'paper', label: 'かみカード', desc: 'じぶんでかみにかく' },
+const CARD_MODES: Array<{ value: CharGameSettings['cardMode']; emoji: string; label: string; desc: string }> = [
+  { value: 'web',   emoji: '📱', label: 'がめんカード', desc: 'タップであなあけ' },
+  { value: 'paper', emoji: '📋', label: 'かみカード',   desc: 'じぶんでかく' },
 ];
 
 export default function CharSettingsScreen({
@@ -39,25 +40,35 @@ export default function CharSettingsScreen({
     onSettingsChange({ ...settings, [key]: value });
 
   return (
-    <div className="flex flex-col gap-5 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
 
-      {/* Header */}
+      {/* Greeting */}
+      <div className="text-center">
+        <p className="text-lg text-gray-500">
+          <span className="font-black text-[var(--color-bingo-blue)]">{playerName}</span>
+          ちゃん、よういはいい？
+        </p>
+      </div>
+
+      {/* ── START — top and prominent ── */}
+      <button
+        onClick={onStartGame}
+        className="w-full text-2xl font-black text-white rounded-2xl py-4 shadow-lg active:scale-95 transition-transform"
+        style={{ background: 'linear-gradient(135deg, #ff6b9d 0%, #ff922b 100%)' }}
+      >
+        🎯 ビンゴスタート！
+      </button>
+
+      {/* Divider */}
       <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="text-sm font-bold text-gray-400 active:scale-95 transition-transform"
-        >
-          ← もどる
-        </button>
-        <h2 className="text-xl font-black text-gray-700">
-          🔤 <span className="font-black text-[var(--color-bingo-blue)]">{playerName}</span>
-          ちゃんのもじビンゴ
-        </h2>
+        <div className="flex-1 h-px bg-gray-200" />
+        <p className="text-xs font-bold text-gray-400 tracking-widest">せってい</p>
+        <div className="flex-1 h-px bg-gray-200" />
       </div>
 
       {/* Content type */}
-      <section className="bg-white rounded-2xl border-4 border-[var(--color-bingo-blue)] p-4 shadow-md">
-        <p className="text-sm font-black text-[var(--color-bingo-blue)] mb-3">もじのしゅるい</p>
+      <section>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">もじのしゅるい</h2>
         <div className="flex gap-2">
           {CONTENT_TYPES.map(({ value, label, emoji }) => {
             const active = settings.contentType === value;
@@ -81,27 +92,27 @@ export default function CharSettingsScreen({
       </section>
 
       {/* Game sub-mode */}
-      <section className="bg-white rounded-2xl border-4 border-[var(--color-bingo-purple)] p-4 shadow-md">
-        <p className="text-sm font-black text-[var(--color-bingo-purple)] mb-3">ゲームのしかた</p>
-        <div className="flex flex-col gap-2">
-          {BINGO_MODES.map(({ value, label, desc }) => {
+      <section>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">ゲームのしかた</h2>
+        <div className="flex gap-2">
+          {BINGO_MODES.map(({ value, emoji, label, desc }) => {
             const active = settings.bingoSubMode === value;
             return (
               <button
                 key={value}
                 onClick={() => set('bingoSubMode', value)}
-                className="flex items-center gap-3 py-3 px-4 rounded-2xl border-4 transition-all active:scale-95 text-left"
+                className="flex-1 flex flex-col items-center gap-1 py-3 px-2 rounded-2xl border-4 transition-all active:scale-95"
                 style={{
                   background: active ? 'var(--color-bingo-purple)' : 'white',
                   borderColor: active ? 'var(--color-bingo-purple)' : '#e5e7eb',
-                  color: active ? 'white' : '#374151',
+                  color: active ? 'white' : '#6b7280',
                 }}
               >
-                <span className="text-xl">{value === 'char-show' ? '👁️' : '🔊'}</span>
-                <div>
-                  <p className="font-black text-sm">{label}</p>
-                  <p className={`text-xs ${active ? 'text-white/80' : 'text-gray-400'}`}>{desc}</p>
-                </div>
+                <span className="text-xl leading-none">{emoji}</span>
+                <span className="text-xs font-black">{label}</span>
+                <span className={`text-[10px] text-center leading-tight ${active ? 'text-white/80' : 'text-gray-300'}`}>
+                  {desc}
+                </span>
               </button>
             );
           })}
@@ -109,10 +120,10 @@ export default function CharSettingsScreen({
       </section>
 
       {/* Card mode */}
-      <section className="bg-white rounded-2xl border-4 border-[var(--color-bingo-green)] p-4 shadow-md">
-        <p className="text-sm font-black text-[var(--color-bingo-green)] mb-3">カードのしゅるい</p>
+      <section>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">カードのしゅるい</h2>
         <div className="flex gap-2">
-          {CARD_MODES.map(({ value, label, desc }) => {
+          {CARD_MODES.map(({ value, emoji, label, desc }) => {
             const active = settings.cardMode === value;
             return (
               <button
@@ -125,28 +136,21 @@ export default function CharSettingsScreen({
                   color: active ? 'white' : '#6b7280',
                 }}
               >
-                <span className="text-xl">{value === 'web' ? '📱' : '📋'}</span>
-                <p className="font-black text-xs">{label}</p>
-                <p className={`text-[10px] text-center leading-tight ${active ? 'text-white/80' : 'text-gray-400'}`}>{desc}</p>
+                <span className="text-xl leading-none">{emoji}</span>
+                <span className="text-xs font-black">{label}</span>
+                <span className={`text-[10px] text-center leading-tight ${active ? 'text-white/80' : 'text-gray-300'}`}>
+                  {desc}
+                </span>
               </button>
             );
           })}
         </div>
       </section>
 
-      {/* Start button */}
-      <button
-        onClick={onStartGame}
-        className="w-full text-2xl font-black text-white rounded-2xl py-5 shadow-lg active:scale-95 transition-transform"
-        style={{ background: 'linear-gradient(135deg, #ff6b9d 0%, #ff922b 100%)' }}
-      >
-        🎯 ビンゴスタート！
-      </button>
-
-      {/* Practice link */}
+      {/* Practice shortcut */}
       <button
         onClick={onGoToPractice}
-        className="w-full text-lg font-black rounded-2xl py-4 border-4 active:scale-95 transition-transform"
+        className="w-full text-base font-black rounded-2xl py-3 border-4 active:scale-95 transition-transform"
         style={{
           background: 'white',
           borderColor: 'var(--color-bingo-purple)',
@@ -155,6 +159,11 @@ export default function CharSettingsScreen({
       >
         🎵 音で練習する
       </button>
+
+      {/* Back */}
+      <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
+        ← もどる
+      </Button>
     </div>
   );
 }

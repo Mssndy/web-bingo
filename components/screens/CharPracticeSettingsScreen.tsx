@@ -1,6 +1,7 @@
 'use client';
 
 import type { CharPracticeSettings } from '@/lib/types';
+import Button from '@/components/ui/Button';
 
 interface Props {
   playerName: string;
@@ -24,67 +25,64 @@ export default function CharPracticeSettingsScreen({
   onBack,
 }: Props) {
   return (
-    <div className="flex flex-col gap-5 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
 
-      {/* Header */}
-      <div className="flex items-center gap-3">
-        <button
-          onClick={onBack}
-          className="text-sm font-bold text-gray-400 active:scale-95 transition-transform"
-        >
-          ← もどる
-        </button>
-        <h2 className="text-xl font-black text-gray-700">
-          🎵 <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
-          ちゃんの音練習
-        </h2>
+      {/* Greeting */}
+      <div className="text-center">
+        <p className="text-lg text-gray-500">
+          <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
+          ちゃん、よういはいい？
+        </p>
       </div>
 
-      <p className="text-center text-sm text-gray-500 font-bold">
-        おとをきいて、もじをえらぼう！
-      </p>
+      {/* ── START — top and prominent ── */}
+      <button
+        onClick={onStart}
+        className="w-full text-2xl font-black text-white rounded-2xl py-4 shadow-lg active:scale-95 transition-transform"
+        style={{ background: 'linear-gradient(135deg, #cc5de8 0%, #4d96ff 100%)' }}
+      >
+        🎵 れんしゅうスタート！
+      </button>
 
-      {/* Content type selection */}
-      <section className="bg-white rounded-2xl border-4 border-[var(--color-bingo-purple)] p-4 shadow-md">
-        <p className="text-sm font-black text-[var(--color-bingo-purple)] mb-3">なにをれんしゅうする？</p>
-        <div className="flex flex-col gap-2">
+      {/* Divider */}
+      <div className="flex items-center gap-3">
+        <div className="flex-1 h-px bg-gray-200" />
+        <p className="text-xs font-bold text-gray-400 tracking-widest">せってい</p>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+
+      {/* Content type */}
+      <section>
+        <h2 className="text-xs font-bold text-gray-400 mb-2 tracking-wide">なにをれんしゅうする？</h2>
+        <div className="flex gap-2">
           {CONTENT_TYPES.map(({ value, label, emoji, desc }) => {
             const active = settings.contentType === value;
             return (
               <button
                 key={value}
                 onClick={() => onSettingsChange({ contentType: value })}
-                className="flex items-center gap-4 py-4 px-4 rounded-2xl border-4 transition-all active:scale-95 text-left"
+                className="flex-1 flex flex-col items-center gap-1 py-4 rounded-2xl font-black border-4 transition-all active:scale-95"
                 style={{
                   background: active ? 'var(--color-bingo-purple)' : 'white',
                   borderColor: active ? 'var(--color-bingo-purple)' : '#e5e7eb',
-                  color: active ? 'white' : '#374151',
+                  color: active ? 'white' : '#6b7280',
                 }}
               >
-                <span
-                  className="text-3xl font-black leading-none w-10 text-center"
-                  style={{ fontFamily: 'sans-serif' }}
-                >
-                  {emoji}
+                <span className="text-3xl font-black leading-none">{emoji}</span>
+                <span className="text-xs font-black text-center leading-tight">{label}</span>
+                <span className={`text-[10px] text-center leading-tight ${active ? 'text-white/70' : 'text-gray-300'}`}>
+                  {desc}
                 </span>
-                <div>
-                  <p className="font-black text-base">{label}</p>
-                  <p className={`text-sm ${active ? 'text-white/80' : 'text-gray-400'}`}>{desc}</p>
-                </div>
               </button>
             );
           })}
         </div>
       </section>
 
-      {/* Start button */}
-      <button
-        onClick={onStart}
-        className="w-full text-2xl font-black text-white rounded-2xl py-5 shadow-lg active:scale-95 transition-transform"
-        style={{ background: 'linear-gradient(135deg, #cc5de8 0%, #4d96ff 100%)' }}
-      >
-        🎵 れんしゅうスタート！
-      </button>
+      {/* Back */}
+      <Button variant="ghost" size="sm" className="w-full" onClick={onBack}>
+        ← もどる
+      </Button>
     </div>
   );
 }

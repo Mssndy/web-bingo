@@ -26,7 +26,7 @@ export default function PracticeSettingsScreen({
   onBack,
 }: Props) {
   return (
-    <div className="flex flex-col gap-5 px-6 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
       <div className="text-center">
