@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  generateTossGrid, checkTossLines, calcTossScore, TOSS_BALLS,
+  generateTossGrid, checkTossLines, calcTossScore, TOSS_BALLS, BALL_OPTIONS,
   GaugeZone, getZoneFromRadius, calcLandingCell,
 } from '@/lib/toss';
 import { playToss, playLand, playBingo, playCorrect, playWrong, playGaugeStop } from '@/lib/sounds';
@@ -21,7 +21,7 @@ interface FlyingBall {
   toY: number;
 }
 
-type Phase     = 'play' | 'aiming' | 'result';
+type Phase     = 'setup' | 'play' | 'aiming' | 'result';
 type RingSpeed = 'slow' | 'normal' | 'fast';
 
 const RING_SPEEDS: Record<RingSpeed, number> = {
@@ -294,6 +294,7 @@ function Cell({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function TossGameScreen({ playerName, onHome }: Props) {
+  const [totalBalls, setTotalBalls] = useState(TOSS_BALLS);
   const [grid, setGrid]           = useState<number[][]>(() => generateTossGrid());
   const [marked, setMarked]       = useState<boolean[][]>(emptyMarked);
   const [ballsLeft, setBallsLeft] = useState(TOSS_BALLS);
@@ -301,7 +302,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
   const [justLanded, setJustLanded] = useState<string | null>(null);
   const [lineCells, setLineCells] = useState<Set<string>>(new Set());
   const [lineCount, setLineCount] = useState(0);
-  const [phase, setPhase]         = useState<Phase>('play');
+  const [phase, setPhase]         = useState<Phase>('setup');
   const [score, setScore]         = useState(0);
   const [aimTarget, setAimTarget] = useState<{ row: number; col: number } | null>(null);
   // Position/size of the target cell for the ring overlay
@@ -413,18 +414,73 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
   function handleReset() {
     setGrid(generateTossGrid());
     setMarked(emptyMarked());
-    setBallsLeft(TOSS_BALLS);
     setFlyingBall(null);
     setJustLanded(null);
     setLineCells(new Set());
     setLineCount(0);
-    setPhase('play');
+    setPhase('setup');
     setScore(0);
     setAimTarget(null);
     setRingPos(null);
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────────
+  function handleStart(balls: number) {
+    setTotalBalls(balls);
+    setBallsLeft(balls);
+    setGrid(generateTossGrid());
+    setMarked(emptyMarked());
+    setLineCells(new Set());
+    setLineCount(0);
+    setScore(0);
+    setPhase('play');
+  }
+
+  // ── Setup screen ─────────────────────────────────────────────────────────────
+
+  if (phase === 'setup') {
+    return (
+      <div className="flex flex-col items-center gap-6 py-8 px-5 animate-[fade-in_0.3s_ease_both]">
+        <div className="w-full max-w-sm flex items-center justify-between">
+          <button
+            onClick={onHome}
+            className="text-2xl p-2 rounded-full hover:bg-black/5 active:scale-90 transition-all"
+            aria-label="ホームにもどる"
+          >
+            🏠
+          </button>
+          <h2 className="text-lg font-black text-gray-700">たまなげビンゴ</h2>
+          <div className="w-10" />
+        </div>
+
+        <div
+          className="w-full max-w-sm rounded-3xl p-6 flex flex-col items-center gap-5 shadow-xl"
+          style={{ background: 'linear-gradient(160deg, #3B1A08, #6B2D0D)' }}
+        >
+          <p className="text-white font-black text-lg">⚾ たまの かず</p>
+          <div className="grid grid-cols-5 gap-2 w-full">
+            {BALL_OPTIONS.map((n) => (
+              <button
+                key={n}
+                onClick={() => handleStart(n)}
+                className="flex flex-col items-center justify-center gap-1 py-3 rounded-2xl font-black text-lg transition-all active:scale-90"
+                style={{
+                  background: n === totalBalls
+                    ? 'linear-gradient(135deg, #fbbf24, #f59e0b)'
+                    : 'rgba(255,255,255,0.12)',
+                  color: n === totalBalls ? '#78350F' : 'white',
+                  border: `2px solid ${n === totalBalls ? '#f59e0b' : 'transparent'}`,
+                  boxShadow: n === totalBalls ? '0 4px 12px rgba(251,191,36,0.4)' : 'none',
+                }}
+              >
+                {n}
+              </button>
+            ))}
+          </div>
+          <p className="text-amber-200 text-xs font-bold opacity-75">タップしてスタート！</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="flex flex-col items-center gap-4 py-5 animate-[fade-in_0.3s_ease_both]">
@@ -524,7 +580,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
           className="flex items-center justify-center gap-1 flex-wrap px-4 py-2 rounded-2xl"
           style={{ background: 'white', border: '2px solid rgba(0,0,0,0.07)', maxWidth: 300 }}
         >
-          {Array.from({ length: TOSS_BALLS }).map((_, i) => (
+          {Array.from({ length: totalBalls }).map((_, i) => (
             <span
               key={i}
               className="text-2xl leading-none transition-opacity duration-300"

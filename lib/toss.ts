@@ -1,4 +1,5 @@
 export const TOSS_BALLS = 10;
+export const BALL_OPTIONS = [8, 10, 12, 15, 20] as const;
 
 function shuffle<T>(arr: T[]): T[] {
   const a = [...arr];
