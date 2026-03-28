@@ -29,19 +29,19 @@ function GuuSimple({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
       {/* knuckle bumps */}
-      <rect x="16" y="16" width="11" height="18" rx="5.5" fill="#FBBF24" />
-      <rect x="30" y="12" width="11" height="20" rx="5.5" fill="#FBBF24" />
-      <rect x="44" y="14" width="11" height="19" rx="5.5" fill="#FBBF24" />
-      <rect x="57" y="18" width="9"  height="16" rx="4.5" fill="#FBBF24" />
+      <rect x="16" y="16" width="11" height="18" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      <rect x="30" y="12" width="11" height="20" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      <rect x="44" y="14" width="11" height="19" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      <rect x="57" y="18" width="9"  height="16" rx="4.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* fist body */}
-      <rect x="12" y="28" width="56" height="36" rx="14" fill="#FBBF24" />
-      {/* knuckle overlay */}
-      <rect x="16" y="28" width="11" height="8" rx="4" fill="#F59E0B" />
-      <rect x="30" y="28" width="11" height="8" rx="4" fill="#F59E0B" />
-      <rect x="44" y="28" width="11" height="8" rx="4" fill="#F59E0B" />
-      <rect x="57" y="28" width="9"  height="8" rx="4" fill="#F59E0B" />
+      <rect x="12" y="28" width="56" height="36" rx="14" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      {/* knuckle lines */}
+      <rect x="16" y="28" width="11" height="8" rx="4" fill="#FCD34D" />
+      <rect x="30" y="28" width="11" height="8" rx="4" fill="#FCD34D" />
+      <rect x="44" y="28" width="11" height="8" rx="4" fill="#FCD34D" />
+      <rect x="57" y="28" width="9"  height="8" rx="4" fill="#FCD34D" />
       {/* thumb */}
-      <rect x="6"  y="34" width="14" height="16" rx="7" fill="#FBBF24" />
+      <rect x="6"  y="34" width="14" height="16" rx="7" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -50,15 +50,15 @@ function ChokiSimple({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
       {/* palm + curled base */}
-      <rect x="16" y="46" width="50" height="28" rx="13" fill="#FBBF24" />
+      <rect x="16" y="46" width="50" height="28" rx="13" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* index finger */}
-      <rect x="22" y="8"  width="14" height="44" rx="7" fill="#FBBF24" />
+      <rect x="22" y="8"  width="14" height="44" rx="7" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* middle finger */}
-      <rect x="40" y="6"  width="14" height="44" rx="7" fill="#FBBF24" />
+      <rect x="40" y="6"  width="14" height="44" rx="7" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* thumb */}
-      <rect x="8"  y="46" width="14" height="14" rx="7" fill="#FBBF24" />
+      <rect x="8"  y="46" width="14" height="14" rx="7" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* knuckle separator */}
-      <rect x="22" y="44" width="32" height="6"  rx="3" fill="#F59E0B" opacity="0.55" />
+      <rect x="22" y="44" width="32" height="6"  rx="3" fill="#FCD34D" />
     </svg>
   );
 }
@@ -67,17 +67,17 @@ function PaaSimple({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
       {/* palm */}
-      <rect x="14" y="50" width="52" height="24" rx="12" fill="#FBBF24" />
+      <rect x="14" y="50" width="52" height="24" rx="12" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* pinky */}
-      <rect x="8"  y="22" width="13" height="36" rx="6.5" fill="#FBBF24" />
+      <rect x="8"  y="22" width="13" height="36" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* ring */}
-      <rect x="24" y="14" width="13" height="42" rx="6.5" fill="#FBBF24" />
+      <rect x="24" y="14" width="13" height="42" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* middle */}
-      <rect x="39" y="10" width="13" height="46" rx="6.5" fill="#FBBF24" />
+      <rect x="39" y="10" width="13" height="46" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* index */}
-      <rect x="54" y="16" width="13" height="40" rx="6.5" fill="#FBBF24" />
+      <rect x="54" y="16" width="13" height="40" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
       {/* thumb */}
-      <rect x="6"  y="50" width="14" height="14" rx="7"   fill="#FBBF24" />
+      <rect x="6"  y="50" width="14" height="14" rx="7"   fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
     </svg>
   );
 }
@@ -117,8 +117,8 @@ function ScissorsObj({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
       {/* handles */}
-      <ellipse cx="20" cy="62" rx="12" ry="13" fill="none" stroke="#ef4444" strokeWidth="5" />
-      <ellipse cx="60" cy="62" rx="12" ry="13" fill="none" stroke="#ef4444" strokeWidth="5" />
+      <ellipse cx="20" cy="62" rx="12" ry="13" fill="none" stroke="white" strokeWidth="5" />
+      <ellipse cx="60" cy="62" rx="12" ry="13" fill="none" stroke="white" strokeWidth="5" />
       {/* blades */}
       <line x1="28" y1="54" x2="54" y2="20" stroke="#d1d5db" strokeWidth="8" strokeLinecap="round" />
       <line x1="52" y1="54" x2="26" y2="20" stroke="#d1d5db" strokeWidth="8" strokeLinecap="round" />
@@ -301,7 +301,6 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
   const [pickResult, setPickResult] = useState<PickResult | null>(null);
   const [battleStep, setBattleStep] = useState<BattleStep>('enter');
   const [score, setScore]           = useState({ win: 0, lose: 0, draw: 0 });
-  const pickTimeoutRef              = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Countdown beats
   useEffect(() => {
@@ -311,14 +310,6 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
     const t3 = setTimeout(() => { setBeat(3); playJankenPonFinal(); }, 880);
     const t4 = setTimeout(() => setPhase('pick'),                      1050);
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
-  }, [phase]);
-
-  // Auto-pick timeout
-  useEffect(() => {
-    if (phase !== 'pick') return;
-    pickTimeoutRef.current = setTimeout(() => commitPick(getRandomHand()), 1800);
-    return () => { if (pickTimeoutRef.current) clearTimeout(pickTimeoutRef.current); };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [phase]);
 
   // Battle animation sequence
@@ -338,7 +329,6 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
   }, [phase, pickResult]);
 
   const commitPick = useCallback((hand: JankenHand) => {
-    if (pickTimeoutRef.current) clearTimeout(pickTimeoutRef.current);
     const cpuHand = getRandomHand();
     const result  = judgeJanken(hand, cpuHand);
     setPickResult({ playerHand: hand, cpuHand, result });
