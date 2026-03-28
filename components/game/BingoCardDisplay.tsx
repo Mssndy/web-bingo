@@ -2,7 +2,8 @@
 
 import { useRef } from 'react';
 import type { BingoCard } from '@/lib/types';
-import { getBingoLines } from '@/lib/bingo';
+import { getBingoLines, getCompletedLineSegments } from '@/lib/bingo';
+import BingoLineOverlay from './BingoLineOverlay';
 
 interface Props {
   card: BingoCard;
@@ -21,17 +22,16 @@ const COL = [
 ];
 
 export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Props) {
-  const bingoLines = getBingoLines(card);
-  const drawnSet   = new Set(drawnNumbers);
+  const bingoLines   = getBingoLines(card);
+  const lineSegments = getCompletedLineSegments(card);
+  const drawnSet     = new Set(drawnNumbers);
 
-  // Track which cells were just stamped so we can run the animation once
   const stampedRef = useRef<Set<string>>(new Set());
 
   return (
-    <div className="w-full">
-      {/* Card body */}
+    <div className="w-full h-full">
       <div
-        className="rounded-3xl overflow-hidden shadow-2xl"
+        className="rounded-3xl overflow-hidden shadow-2xl h-full flex flex-col"
         style={{
           background: 'linear-gradient(160deg, #0b1840 0%, #152360 60%, #0e1e50 100%)',
           border: '4px solid #ffd93d',
@@ -40,11 +40,11 @@ export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Prop
       >
         {/* ── BINGO title banner ── */}
         <div
-          className="py-2 text-center"
+          className="shrink-0 py-1.5 text-center"
           style={{ background: 'linear-gradient(90deg, #0b1840, #1c3380, #0b1840)' }}
         >
           <span
-            className="font-black tracking-[0.35em] text-xl"
+            className="font-black tracking-[0.35em] text-base"
             style={{ color: '#ffd93d', textShadow: '0 0 14px rgba(255,217,61,0.9), 0 0 28px rgba(255,217,61,0.4)' }}
           >
             ✦ BINGO ✦
@@ -52,14 +52,14 @@ export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Prop
         </div>
 
         {/* ── Column header letters ── */}
-        <div className="grid grid-cols-5 gap-0 px-3 pt-3 pb-1.5">
+        <div className="shrink-0 grid grid-cols-5 gap-0 px-2 pt-2 pb-1">
           {COL_LABELS.map((label, c) => (
             <div
               key={label}
-              className="mx-0.5 flex items-center justify-center rounded-xl py-2 font-black text-2xl text-white"
+              className="mx-0.5 flex items-center justify-center rounded-xl py-1 font-black text-lg text-white"
               style={{
                 backgroundColor: COL[c].bg,
-                boxShadow: `0 4px 10px ${COL[c].glow}`,
+                boxShadow: `0 3px 8px ${COL[c].glow}`,
                 letterSpacing: '0.05em',
               }}
             >
@@ -68,8 +68,11 @@ export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Prop
           ))}
         </div>
 
-        {/* ── Cell grid ── */}
-        <div className="grid grid-cols-5 gap-0 px-3 pb-3 pt-1.5">
+        {/* ── Cell grid — fills remaining height ── */}
+        <div
+          className="flex-1 min-h-0 grid grid-cols-5 px-2 pb-2 pt-0.5"
+          style={{ position: 'relative', gridTemplateRows: 'repeat(5, minmax(0, 1fr))' }}
+        >
           {card.cells.map((row, r) =>
             row.map((cell, c) => {
               const marked = card.marked[r][c];
@@ -80,11 +83,9 @@ export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Prop
 
               const canTap = !isFree && !marked && drawnSet.has(cell as number);
 
-              // Track new stamps for animation
               const isNewStamp = marked && !isFree && !stampedRef.current.has(key);
               if (marked && !isFree) stampedRef.current.add(key);
 
-              /* ── Determine visual state ── */
               let cellStyle: React.CSSProperties;
               let innerStyle: React.CSSProperties = {};
               let innerClass = 'font-black transition-transform';
@@ -133,12 +134,12 @@ export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Prop
                   onClick={() => canTap && onCellTap?.(r, c)}
                   disabled={!canTap && !isFree}
                   style={cellStyle}
-                  className="mx-0.5 my-0.5 aspect-square flex items-center justify-center rounded-xl select-none transition-all active:scale-90"
+                  className="mx-0.5 my-0.5 flex items-center justify-center rounded-xl select-none transition-all active:scale-90"
                 >
                   {isFree ? (
-                    <span className="text-white text-2xl">⭐</span>
+                    <span className="text-white text-xl">⭐</span>
                   ) : (
-                    <span style={innerStyle} className={`text-base ${innerClass}`}>
+                    <span style={innerStyle} className={`text-sm ${innerClass}`}>
                       {marked ? '★' : String(cell)}
                     </span>
                   )}
@@ -146,6 +147,8 @@ export default function BingoCardDisplay({ card, drawnNumbers, onCellTap }: Prop
               );
             })
           )}
+
+          <BingoLineOverlay segments={lineSegments} />
         </div>
       </div>
     </div>

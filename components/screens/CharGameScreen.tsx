@@ -32,10 +32,10 @@ function CharDisplay({
   if (!char) {
     return (
       <div
-        className="text-center rounded-3xl border-4 py-8 px-6 shadow-lg"
+        className="text-center rounded-2xl border-4 py-3 px-4 shadow"
         style={{ background: '#f0f4ff', borderColor: '#c7d2fe' }}
       >
-        <p className="text-gray-400 font-bold text-lg">ボタンをおしてスタート！</p>
+        <p className="text-gray-400 font-bold text-base">ボタンをおしてスタート！</p>
       </div>
     );
   }
@@ -43,48 +43,54 @@ function CharDisplay({
   if (subMode === 'char-show') {
     return (
       <div
-        className="text-center rounded-3xl border-4 py-6 px-6 shadow-lg"
+        className="text-center rounded-2xl border-4 py-3 px-4 shadow"
         style={{ background: 'var(--color-bingo-yellow)', borderColor: 'var(--color-bingo-orange)' }}
       >
-        <p className="text-sm font-bold text-gray-500 mb-2">このもじは？</p>
-        <p
-          className="font-black leading-none animate-[number-pop_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-          style={{ fontSize: '5rem', color: '#1e293b' }}
-        >
-          {char}
-        </p>
-        <p className="text-base font-bold text-gray-400 mt-2">{ROMAJI[char] ?? ''}</p>
-        <button
-          onClick={onSpeak}
-          className="mt-3 text-sm font-bold text-[var(--color-bingo-blue)] active:scale-95 transition-transform"
-        >
-          🔊 もう一度きく
-        </button>
+        <div className="flex items-center justify-center gap-4">
+          <p
+            className="font-black leading-none animate-[number-pop_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+            style={{ fontSize: '3.5rem', color: '#1e293b' }}
+          >
+            {char}
+          </p>
+          <div className="flex flex-col items-start">
+            <p className="text-sm font-bold text-gray-500">{ROMAJI[char] ?? ''}</p>
+            <button
+              onClick={onSpeak}
+              className="mt-1 text-sm font-bold text-[var(--color-bingo-blue)] active:scale-95 transition-transform"
+            >
+              🔊 もう一度きく
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
 
-  // sound-match mode: show speaker + character
+  // sound-match mode
   return (
     <div
-      className="text-center rounded-3xl border-4 py-6 px-6 shadow-lg"
+      className="text-center rounded-2xl border-4 py-3 px-4 shadow"
       style={{ background: 'var(--color-bingo-yellow)', borderColor: 'var(--color-bingo-orange)' }}
     >
-      <p className="text-sm font-bold text-gray-500 mb-2">きいてカードをさがしてね！</p>
-      <button
-        onClick={onSpeak}
-        className="text-6xl leading-none active:scale-90 transition-transform animate-[number-pop_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-        aria-label="もう一度きく"
-      >
-        🔊
-      </button>
-      <p className="text-sm font-bold text-gray-400 mt-3">タップしてもう一度きこう</p>
-      <p
-        className="font-black mt-2 leading-none"
-        style={{ fontSize: '3rem', color: '#1e293b' }}
-      >
-        {char}
-      </p>
+      <div className="flex items-center justify-center gap-4">
+        <button
+          onClick={onSpeak}
+          className="text-5xl leading-none active:scale-90 transition-transform animate-[number-pop_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+          aria-label="もう一度きく"
+        >
+          🔊
+        </button>
+        <div className="flex flex-col items-start">
+          <p className="text-xs font-bold text-gray-500">きいてカードをさがしてね！</p>
+          <p
+            className="font-black leading-none mt-1"
+            style={{ fontSize: '2.5rem', color: '#1e293b' }}
+          >
+            {char}
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
@@ -104,17 +110,13 @@ export default function CharGameScreen({
 
   const prevCharRef = useRef<string | null>(null);
 
-  // Auto-play TTS when a new character is drawn in sound-match mode
+  // Auto-play TTS whenever a new character is drawn
   useEffect(() => {
-    if (
-      settings.bingoSubMode === 'sound-match' &&
-      currentChar &&
-      currentChar !== prevCharRef.current
-    ) {
+    if (currentChar && currentChar !== prevCharRef.current) {
       prevCharRef.current = currentChar;
       speakChar(currentChar, locale);
     }
-  }, [currentChar, settings.bingoSubMode, locale]);
+  }, [currentChar, locale]);
 
   function handleSpeak() {
     if (currentChar) speakChar(currentChar, locale);
@@ -125,65 +127,71 @@ export default function CharGameScreen({
     : 0;
 
   return (
-    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-2 px-4 pt-3 pb-2 h-full animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="shrink-0 flex items-center justify-between gap-2">
         <button
           onClick={onHome}
           className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform shrink-0"
         >
           🏠 ホーム
         </button>
+        <p className="text-sm font-bold text-gray-500 text-center">
+          <span className="font-black text-[var(--color-bingo-blue)]">{playerName}</span>
+          ちゃん、がんばれ！🔥
+        </p>
         <ElapsedTimer />
       </div>
 
-      {/* Greeting */}
-      <p className="text-center text-base font-bold text-gray-500">
-        <span className="font-black text-[var(--color-bingo-blue)]">{playerName}</span>
-        ちゃん、がんばれ！🔥
-      </p>
-
       {/* Character display */}
-      <CharDisplay
-        key={currentChar ?? 'empty'}
-        char={currentChar}
-        subMode={settings.bingoSubMode}
-        onSpeak={handleSpeak}
-      />
+      <div className="shrink-0">
+        <CharDisplay
+          key={currentChar ?? 'empty'}
+          char={currentChar}
+          subMode={settings.bingoSubMode}
+          onSpeak={handleSpeak}
+        />
+      </div>
 
       {/* Draw button */}
-      <DrawButton
-        onDraw={onDraw}
-        disabled={isGameOver}
-        remaining={isWebCard ? unmarkedCount : remainingChars.length}
-        label={isWebCard ? 'あと' : 'のこり'}
-        unit={isWebCard ? 'マス' : '個'}
-      />
+      <div className="shrink-0">
+        <DrawButton
+          onDraw={onDraw}
+          disabled={isGameOver}
+          remaining={isWebCard ? unmarkedCount : remainingChars.length}
+          label={isWebCard ? 'あと' : 'のこり'}
+          unit={isWebCard ? 'マス' : '個'}
+        />
+      </div>
 
       {/* Manual Bingo button — paper only */}
       {!isWebCard && (
-        <Button
-          variant="secondary"
-          size="lg"
-          className="w-full"
-          onClick={onFinish}
-          disabled={drawnChars.length === 0}
-        >
-          🏆 ビンゴ！
-        </Button>
+        <div className="shrink-0">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="w-full"
+            onClick={onFinish}
+            disabled={drawnChars.length === 0}
+          >
+            🏆 ビンゴ！
+          </Button>
+        </div>
       )}
 
-      {/* Web card */}
+      {/* Web card — fills remaining space */}
       {isWebCard && bingoCard && (
-        <CharBingoCardDisplay
-          card={bingoCard}
-          drawnChars={drawnChars}
-          onCellTap={onCellTap}
-        />
+        <div className="flex-1 min-h-0">
+          <CharBingoCardDisplay
+            card={bingoCard}
+            drawnChars={drawnChars}
+            onCellTap={onCellTap}
+          />
+        </div>
       )}
 
-      {/* Drawn history — paper mode (show chars as chips) */}
+      {/* Drawn history — paper mode */}
       {!isWebCard && drawnChars.length > 0 && (
         <div
           className="rounded-2xl p-3 border-2"

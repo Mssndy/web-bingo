@@ -316,7 +316,7 @@ export default function BingoApp() {
   }
 
   return (
-    <main className="max-w-lg mx-auto w-full">
+    <main className="max-w-lg mx-auto w-full h-full">
       {screen === 'name-entry' && (
         <NameEntryScreen
           onStart={handleStart}

@@ -83,7 +83,7 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
   }
 
   return (
-    <div className="flex flex-col gap-5 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-3 px-4 py-4 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header row */}
       <div className="flex items-center justify-between">
@@ -103,27 +103,21 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
         </div>
       </div>
 
-      {/* Greeting */}
-      <p className="text-center text-base font-bold text-gray-500">
-        <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
-        ちゃん、れんぞく正解をめざそう！
-      </p>
-
       {/* Streak */}
-      <div className="text-center bg-white rounded-2xl border-4 border-[var(--color-bingo-purple)] py-3 shadow-md">
-        <p className="text-sm font-bold text-[var(--color-bingo-purple)] mb-1">れんぞく正解</p>
+      <div className="text-center bg-white rounded-2xl border-4 border-[var(--color-bingo-purple)] py-2 shadow-md">
+        <p className="text-xs font-bold text-[var(--color-bingo-purple)]">れんぞく正解</p>
         <p
           key={streak}
-          className="text-6xl font-black text-[var(--color-bingo-purple)] animate-[number-pop_0.45s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+          className="text-5xl font-black text-[var(--color-bingo-purple)] animate-[number-pop_0.45s_cubic-bezier(0.34,1.56,0.64,1)_both]"
         >
           {streak}
         </p>
-        <p className="text-sm text-gray-400 mt-1">もん</p>
+        <p className="text-xs text-gray-400">もん</p>
       </div>
 
       {/* Problem */}
       {problem && (
-        <div className="text-center bg-[var(--color-bingo-yellow)] rounded-3xl border-4 border-[var(--color-bingo-orange)] py-7 px-6 shadow-lg">
+        <div className="text-center bg-[var(--color-bingo-yellow)] rounded-3xl border-4 border-[var(--color-bingo-orange)] py-4 px-6 shadow-lg">
           <p className="text-sm font-bold text-gray-500 mb-2">もんだい</p>
           <p className="text-5xl font-black text-gray-800 tracking-wide">
             {problem.expression} ＝ ？
@@ -178,12 +172,12 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
             onChange={(e) => setInputValue(e.target.value)}
             placeholder="こたえ"
             autoFocus
-            className="w-full text-4xl font-black text-center rounded-2xl border-4 border-[var(--color-bingo-blue)] px-4 py-4 outline-none focus:border-[var(--color-bingo-purple)] transition-colors bg-white shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="w-full text-3xl font-black text-center rounded-2xl border-4 border-[var(--color-bingo-blue)] px-4 py-3 outline-none focus:border-[var(--color-bingo-purple)] transition-colors bg-white shadow-sm [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           <button
             type="submit"
             disabled={inputValue === ''}
-            className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-purple)] shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
+            className="w-full text-2xl font-black text-white rounded-2xl py-3 bg-[var(--color-bingo-purple)] shadow-lg active:scale-95 transition-transform disabled:opacity-40 disabled:cursor-not-allowed"
           >
             こたえる！
           </button>
@@ -191,7 +185,7 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
       ) : feedback === 'wrong' ? (
         <button
           onClick={nextProblem}
-          className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-blue)] shadow-lg active:scale-95 transition-transform"
+          className="w-full text-2xl font-black text-white rounded-2xl py-3 bg-[var(--color-bingo-blue)] shadow-lg active:scale-95 transition-transform"
         >
           つぎの問題 →
         </button>
@@ -199,7 +193,7 @@ export default function PracticeGameScreen({ playerName, settings, onHome }: Pro
         /* Correct: show countdown button */
         <button
           onClick={nextProblem}
-          className="w-full text-2xl font-black text-white rounded-2xl py-5 bg-[var(--color-bingo-green)] shadow-lg active:scale-95 transition-transform"
+          className="w-full text-2xl font-black text-white rounded-2xl py-3 bg-[var(--color-bingo-green)] shadow-lg active:scale-95 transition-transform"
         >
           つぎの問題 →{countdown !== null && countdown > 0 && (
             <span className="ml-2 text-xl opacity-80">({countdown})</span>

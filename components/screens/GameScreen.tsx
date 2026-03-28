@@ -56,103 +56,113 @@ export default function GameScreen({
     : 0;
 
   return (
-    <div className="flex flex-col gap-4 px-5 py-5 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-2 px-4 pt-3 pb-2 h-full animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
-      <div className="flex items-center justify-between gap-2">
+      <div className="shrink-0 flex items-center justify-between gap-2">
         <button
           onClick={onHome}
           className="flex items-center gap-1 text-sm font-bold text-gray-400 active:scale-95 transition-transform shrink-0"
         >
           🏠 ホーム
         </button>
+        <p className="text-sm font-bold text-gray-500 text-center">
+          <span className="font-black text-[var(--color-bingo-pink)]">{playerName}</span>
+          ちゃん、がんばれ！🔥
+        </p>
         <ElapsedTimer />
       </div>
 
-      {/* Greeting */}
-      <p className="text-center text-base font-bold text-gray-500">
-        <span className="font-black text-[var(--color-bingo-pink)]">{playerName}</span>
-        ちゃん、がんばれ！🔥
-      </p>
-
       {/* Number / problem display */}
-      <NumberDisplay
-        key={`${currentNumber ?? 'empty'}-${drawnNumbers.length}`}
-        number={currentNumber}
-        problem={currentProblem}
-        mode={settings.mode}
-        answerMode={settings.answerMode}
-        awaitingAnswer={isInputMode ? awaitingAnswer : undefined}
-        onAnswer={isInputMode && awaitingAnswer ? onAnswerSubmit : undefined}
-      />
+      <div className="shrink-0">
+        <NumberDisplay
+          key={`${currentNumber ?? 'empty'}-${drawnNumbers.length}`}
+          number={currentNumber}
+          problem={currentProblem}
+          mode={settings.mode}
+          answerMode={settings.answerMode}
+          awaitingAnswer={isInputMode ? awaitingAnswer : undefined}
+          onAnswer={isInputMode && awaitingAnswer ? onAnswerSubmit : undefined}
+        />
+      </div>
 
       {/* Correct-answer guidance (input mode) */}
       {answeredCorrectly && (
-        isWebCard ? (
-          numberOnCard ? (
-            <div
-              key={`guide-${currentNumber}`}
-              className="text-center font-black py-3 px-4 rounded-2xl bg-[var(--color-bingo-yellow)] border-4 border-[var(--color-bingo-orange)] text-gray-800 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-            >
-              👆 カードに <span className="text-[var(--color-bingo-pink)]">{currentNumber}</span> があるよ！タップして穴を開けよう！
-            </div>
+        <div className="shrink-0">
+          {isWebCard ? (
+            numberOnCard ? (
+              <div
+                key={`guide-${currentNumber}`}
+                className="text-center font-black py-2 px-3 rounded-2xl bg-[var(--color-bingo-yellow)] border-4 border-[var(--color-bingo-orange)] text-gray-800 text-sm animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+              >
+                👆 カードに <span className="text-[var(--color-bingo-pink)]">{currentNumber}</span> があるよ！タップしよう！
+              </div>
+            ) : (
+              <div
+                key={`guide-${currentNumber}`}
+                className="text-center font-black py-2 px-3 rounded-2xl bg-white border-4 border-[var(--color-bingo-blue)] text-gray-700 text-sm animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+              >
+                ✨ バッチリ！カードに {currentNumber} はないよ。次へ進もう！
+              </div>
+            )
           ) : (
             <div
               key={`guide-${currentNumber}`}
-              className="text-center font-black py-3 px-4 rounded-2xl bg-white border-4 border-[var(--color-bingo-blue)] text-gray-700 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+              className="text-center font-black py-2 px-3 rounded-2xl bg-[var(--color-bingo-yellow)] border-4 border-[var(--color-bingo-orange)] text-gray-800 text-sm animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
             >
-              ✨ 計算はバッチリ！カードに {currentNumber} はないよ。次へ進もう！
+              📋 カードに <span className="text-[var(--color-bingo-pink)]">{currentNumber}</span> があったら〇をつけよう！
             </div>
-          )
-        ) : (
-          <div
-            key={`guide-${currentNumber}`}
-            className="text-center font-black py-3 px-4 rounded-2xl bg-[var(--color-bingo-yellow)] border-4 border-[var(--color-bingo-orange)] text-gray-800 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-          >
-            📋 カードに <span className="text-[var(--color-bingo-pink)]">{currentNumber}</span> があったら〇をつけよう！
-          </div>
-        )
+          )}
+        </div>
       )}
 
       {/* Wrong-answer feedback (input mode) */}
       {lastAnswerWrong && (
-        <div
-          key={drawnNumbers.length}
-          className="text-center text-base font-black py-3 rounded-2xl bg-[var(--color-bingo-blue)] text-white animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-        >
-          💪 おしい！もう一度チャレンジ！
+        <div className="shrink-0">
+          <div
+            key={drawnNumbers.length}
+            className="text-center text-sm font-black py-2 rounded-2xl bg-[var(--color-bingo-blue)] text-white animate-[bounce-in_0.4s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+          >
+            💪 おしい！もう一度チャレンジ！
+          </div>
         </div>
       )}
 
       {/* Draw button */}
-      <DrawButton
-        onDraw={onDraw}
-        disabled={isGameOver || awaitingAnswer}
-        remaining={isWebCard ? unmarkedCount : remainingNumbers.length}
-        label={isWebCard ? 'あと' : 'のこり'}
-        unit={isWebCard ? 'マス' : '個'}
-      />
+      <div className="shrink-0">
+        <DrawButton
+          onDraw={onDraw}
+          disabled={isGameOver || awaitingAnswer}
+          remaining={isWebCard ? unmarkedCount : remainingNumbers.length}
+          label={isWebCard ? 'あと' : 'のこり'}
+          unit={isWebCard ? 'マス' : '個'}
+        />
+      </div>
 
       {/* Manual Bingo button — paper only */}
       {!isWebCard && (
-        <Button
-          variant="secondary"
-          size="lg"
-          className="w-full"
-          onClick={onFinish}
-          disabled={drawnNumbers.length === 0}
-        >
-          🏆 ビンゴ！
-        </Button>
+        <div className="shrink-0">
+          <Button
+            variant="secondary"
+            size="lg"
+            className="w-full"
+            onClick={onFinish}
+            disabled={drawnNumbers.length === 0}
+          >
+            🏆 ビンゴ！
+          </Button>
+        </div>
       )}
 
-      {/* Web card */}
+      {/* Web card — fills remaining space */}
       {isWebCard && bingoCard && (
-        <BingoCardDisplay
-          card={bingoCard}
-          drawnNumbers={drawnNumbers}
-          onCellTap={onCellTap}
-        />
+        <div className="flex-1 min-h-0">
+          <BingoCardDisplay
+            card={bingoCard}
+            drawnNumbers={drawnNumbers}
+            onCellTap={onCellTap}
+          />
+        </div>
       )}
 
       {/* Drawn history — paper mode */}

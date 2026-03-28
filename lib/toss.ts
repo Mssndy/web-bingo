@@ -16,6 +16,21 @@ export function generateTossGrid(): number[][] {
   return Array.from({ length: 5 }, (_, r) => nums.slice(r * 5, r * 5 + 5));
 }
 
+import type { LineSegment } from '@/lib/types';
+
+export function getTossLineSegments(marked: boolean[][]): LineSegment[] {
+  const segs: LineSegment[] = [];
+  for (let r = 0; r < 5; r++) {
+    if (marked[r].every(Boolean)) segs.push({ r1: r, c1: 0, r2: r, c2: 4 });
+  }
+  for (let c = 0; c < 5; c++) {
+    if (marked.every((row) => row[c])) segs.push({ r1: 0, c1: c, r2: 4, c2: c });
+  }
+  if (marked.every((row, i) => row[i])) segs.push({ r1: 0, c1: 0, r2: 4, c2: 4 });
+  if (marked.every((row, i) => row[4 - i])) segs.push({ r1: 0, c1: 4, r2: 4, c2: 0 });
+  return segs;
+}
+
 export interface TossLineResult {
   /** Set of "r,c" keys belonging to at least one completed line. */
   cells: Set<string>;

@@ -229,7 +229,7 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
   }
 
   return (
-    <div className="flex flex-col gap-4 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-3 px-4 py-4 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header row */}
       <div className="flex items-center justify-between">

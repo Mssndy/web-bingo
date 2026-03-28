@@ -91,7 +91,7 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
   const romaji = ROMAJI[currentChar] ?? '';
 
   return (
-    <div className="flex flex-col gap-4 px-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col gap-3 px-4 py-4 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -119,7 +119,7 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
 
       {/* Streak counter */}
       <div
-        className="text-center bg-white rounded-2xl border-4 py-3 shadow-md"
+        className="text-center bg-white rounded-2xl border-4 py-2 shadow-md"
         style={{ borderColor: 'var(--color-bingo-purple)' }}
       >
         <p className="text-sm font-bold text-[var(--color-bingo-purple)] mb-1">れんぞく正解</p>
@@ -134,7 +134,7 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
 
       {/* Audio prompt */}
       <div
-        className="text-center rounded-3xl border-4 py-5 px-6 shadow-lg"
+        className="text-center rounded-3xl border-4 py-3 px-6 shadow-lg"
         style={{ background: 'var(--color-bingo-yellow)', borderColor: 'var(--color-bingo-orange)' }}
       >
         <p className="text-sm font-bold text-gray-500 mb-3">もんだい：このおとはどのもじ？</p>

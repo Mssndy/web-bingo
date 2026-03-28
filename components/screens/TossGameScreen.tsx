@@ -2,8 +2,8 @@
 
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
-  generateTossGrid, checkTossLines, calcTossScore, TOSS_BALLS, BALL_OPTIONS,
-  GaugeZone, getZoneFromRadius, calcLandingCell,
+  generateTossGrid, checkTossLines, calcTossScore, getTossLineSegments,
+  TOSS_BALLS, BALL_OPTIONS, GaugeZone, getZoneFromRadius, calcLandingCell,
 } from '@/lib/toss';
 import { playToss, playLand, playBingo, playCorrect, playWrong, playGaugeStop } from '@/lib/sounds';
 import { saveRankEntry } from '@/lib/ranking';
@@ -439,7 +439,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
 
   if (phase === 'setup') {
     return (
-      <div className="flex flex-col items-center gap-6 py-8 px-5 animate-[fade-in_0.3s_ease_both]">
+      <div className="flex flex-col items-center gap-3 py-4 px-4 animate-[fade-in_0.3s_ease_both]">
         <div className="w-full max-w-sm flex items-center justify-between">
           <button
             onClick={onHome}
@@ -453,7 +453,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
         </div>
 
         <div
-          className="w-full max-w-sm rounded-3xl p-6 flex flex-col items-center gap-5 shadow-xl"
+          className="w-full max-w-sm rounded-3xl p-4 flex flex-col items-center gap-3 shadow-xl"
           style={{ background: 'linear-gradient(160deg, #3B1A08, #6B2D0D)' }}
         >
           <p className="text-white font-black text-lg">⚾ たまの かず</p>
@@ -483,7 +483,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
   }
 
   return (
-    <div className="flex flex-col items-center gap-4 py-5 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col items-center gap-2 py-3 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
       <div className="w-full max-w-sm px-4 flex items-center justify-between">
@@ -560,6 +560,34 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
             )}
           </div>
 
+          {/* SVG bingo line overlay */}
+          {lineCount > 0 && (
+            <svg
+              style={{
+                position: 'absolute', inset: 0,
+                width: '100%', height: '100%',
+                pointerEvents: 'none', zIndex: 15,
+              }}
+              viewBox="0 0 100 100"
+              preserveAspectRatio="none"
+            >
+              {getTossLineSegments(marked).map(({ r1, c1, r2, c2 }, i) => (
+                <g key={i}>
+                  <line
+                    x1={c1 * 20 + 10} y1={r1 * 20 + 10}
+                    x2={c2 * 20 + 10} y2={r2 * 20 + 10}
+                    stroke="rgba(251,191,36,0.45)" strokeWidth={14} strokeLinecap="round"
+                  />
+                  <line
+                    x1={c1 * 20 + 10} y1={r1 * 20 + 10}
+                    x2={c2 * 20 + 10} y2={r2 * 20 + 10}
+                    stroke="rgba(255,255,255,0.92)" strokeWidth={5} strokeLinecap="round"
+                  />
+                </g>
+              ))}
+            </svg>
+          )}
+
           {/* Ring overlay — absolute within the card while aiming */}
           {phase === 'aiming' && ringPos && (
             <RingOverlay
@@ -574,26 +602,30 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
       </div>
 
       {/* Balls (launcher origin — always mounted for BoundingClientRect) */}
-      <div className="flex flex-col items-center gap-2">
-        <div
-          ref={launcherRef}
-          className="flex items-center justify-center gap-1 flex-wrap px-4 py-2 rounded-2xl"
-          style={{ background: 'white', border: '2px solid rgba(0,0,0,0.07)', maxWidth: 300 }}
-        >
-          {Array.from({ length: totalBalls }).map((_, i) => (
-            <span
-              key={i}
-              className="text-2xl leading-none transition-opacity duration-300"
-              style={{ opacity: i < ballsLeft ? 1 : 0.15 }}
-            >
-              ⚾
-            </span>
-          ))}
+      {phase !== 'result' && (
+        <div className="flex flex-col items-center gap-2">
+          <div
+            ref={launcherRef}
+            className="flex items-center justify-center gap-1 flex-wrap px-4 py-2 rounded-2xl"
+            style={{ background: 'white', border: '2px solid rgba(0,0,0,0.07)', maxWidth: 300 }}
+          >
+            {Array.from({ length: totalBalls }).map((_, i) => (
+              <span
+                key={i}
+                className="text-2xl leading-none transition-opacity duration-300"
+                style={{ opacity: i < ballsLeft ? 1 : 0.15 }}
+              >
+                ⚾
+              </span>
+            ))}
+          </div>
+          <p className="text-xs text-gray-400 font-bold">
+            あと <span className="text-lg font-black text-gray-600">{ballsLeft}</span> 球
+          </p>
         </div>
-        <p className="text-xs text-gray-400 font-bold">
-          あと <span className="text-lg font-black text-gray-600">{ballsLeft}</span> 球
-        </p>
-      </div>
+      )}
+      {/* Hidden launcher ref mount point for result phase (BoundingClientRect) */}
+      {phase === 'result' && <div ref={launcherRef} style={{ display: 'none' }} />}
 
       {/* Speed selector */}
       {phase !== 'result' && (
@@ -639,59 +671,54 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
         </div>
       )}
 
-      {/* Result overlay */}
+      {/* Result card (shown inline below grid when game ends) */}
       {phase === 'result' && (
         <div
-          className="fixed inset-0 flex items-center justify-center z-50"
-          style={{ background: 'rgba(0,0,0,0.55)' }}
+          className="w-full max-w-sm rounded-3xl p-7 shadow-2xl flex flex-col items-center gap-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+          style={{ background: 'white' }}
         >
-          <div
-            className="mx-5 rounded-3xl p-7 shadow-2xl flex flex-col items-center gap-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-            style={{ background: 'white', maxWidth: 340, width: '100%' }}
-          >
-            <p className="text-2xl font-black text-gray-700">ゲームしゅうりょう！🎉</p>
+          <p className="text-2xl font-black text-gray-700">ゲームしゅうりょう！🎉</p>
 
-            {lineCount > 0 ? (
-              <>
-                <div className="text-center">
-                  <p className="text-6xl font-black" style={{ color: 'var(--color-bingo-yellow)' }}>
-                    {score}
-                  </p>
-                  <p className="text-sm text-gray-400 font-bold">てん</p>
-                </div>
-                <div
-                  className="rounded-2xl px-6 py-2 text-center"
-                  style={{ background: 'var(--color-bingo-green)', color: 'white' }}
-                >
-                  <p className="text-lg font-black">ビンゴ {lineCount} ライン！</p>
-                </div>
-                <p className="text-sm text-gray-500 text-center font-bold">
-                  ビンゴラインの数字を合わせると<br />{score}てんだよ！
-                </p>
-              </>
-            ) : (
+          {lineCount > 0 ? (
+            <>
               <div className="text-center">
-                <p className="text-5xl">😢</p>
-                <p className="text-base font-black text-gray-500 mt-2">ビンゴ ならなかった…</p>
-                <p className="text-sm text-gray-400 mt-1">もう一度 チャレンジしよう！</p>
+                <p className="text-6xl font-black" style={{ color: 'var(--color-bingo-yellow)' }}>
+                  {score}
+                </p>
+                <p className="text-sm text-gray-400 font-bold">てん</p>
               </div>
-            )}
-
-            <div className="flex gap-3 w-full">
-              <button
-                onClick={handleReset}
-                className="flex-1 py-4 rounded-2xl text-lg font-black text-white shadow-md active:scale-95 transition-all"
-                style={{ background: 'linear-gradient(135deg, #ff922b 0%, #e03131 100%)' }}
+              <div
+                className="rounded-2xl px-6 py-2 text-center"
+                style={{ background: 'var(--color-bingo-green)', color: 'white' }}
               >
-                もう一度！⚾
-              </button>
-              <button
-                onClick={onHome}
-                className="py-4 px-4 rounded-2xl text-lg font-black text-gray-500 shadow-md active:scale-95 transition-all bg-gray-100"
-              >
-                🏠
-              </button>
+                <p className="text-lg font-black">ビンゴ {lineCount} ライン！</p>
+              </div>
+              <p className="text-sm text-gray-500 text-center font-bold">
+                ビンゴラインの数字を合わせると<br />{score}てんだよ！
+              </p>
+            </>
+          ) : (
+            <div className="text-center">
+              <p className="text-5xl">😢</p>
+              <p className="text-base font-black text-gray-500 mt-2">ビンゴ ならなかった…</p>
+              <p className="text-sm text-gray-400 mt-1">もう一度 チャレンジしよう！</p>
             </div>
+          )}
+
+          <div className="flex gap-3 w-full">
+            <button
+              onClick={handleReset}
+              className="flex-1 py-4 rounded-2xl text-lg font-black text-white shadow-md active:scale-95 transition-all"
+              style={{ background: 'linear-gradient(135deg, #ff922b 0%, #e03131 100%)' }}
+            >
+              もう一度！⚾
+            </button>
+            <button
+              onClick={onHome}
+              className="py-4 px-4 rounded-2xl text-lg font-black text-gray-500 shadow-md active:scale-95 transition-all bg-gray-100"
+            >
+              🏠
+            </button>
           </div>
         </div>
       )}

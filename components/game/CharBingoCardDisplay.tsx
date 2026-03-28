@@ -2,7 +2,8 @@
 
 import { useRef } from 'react';
 import type { CharBingoCard } from '@/lib/characters';
-import { getCharBingoLines } from '@/lib/characters';
+import { getCharBingoLines, getCharCompletedLineSegments } from '@/lib/characters';
+import BingoLineOverlay from './BingoLineOverlay';
 
 interface Props {
   card: CharBingoCard;
@@ -21,15 +22,16 @@ const COL = [
 ];
 
 export default function CharBingoCardDisplay({ card, drawnChars, onCellTap }: Props) {
-  const bingoLines = getCharBingoLines(card);
-  const drawnSet   = new Set(drawnChars);
+  const bingoLines   = getCharBingoLines(card);
+  const lineSegments = getCharCompletedLineSegments(card);
+  const drawnSet     = new Set(drawnChars);
 
   const stampedRef = useRef<Set<string>>(new Set());
 
   return (
-    <div className="w-full">
+    <div className="w-full h-full">
       <div
-        className="rounded-3xl overflow-hidden shadow-2xl"
+        className="rounded-3xl overflow-hidden shadow-2xl h-full flex flex-col"
         style={{
           background: 'linear-gradient(160deg, #0b1840 0%, #152360 60%, #0e1e50 100%)',
           border: '4px solid #ffd93d',
@@ -38,11 +40,11 @@ export default function CharBingoCardDisplay({ card, drawnChars, onCellTap }: Pr
       >
         {/* Title banner */}
         <div
-          className="py-2 text-center"
+          className="shrink-0 py-1.5 text-center"
           style={{ background: 'linear-gradient(90deg, #0b1840, #1c3380, #0b1840)' }}
         >
           <span
-            className="font-black tracking-[0.35em] text-xl"
+            className="font-black tracking-[0.35em] text-base"
             style={{ color: '#ffd93d', textShadow: '0 0 14px rgba(255,217,61,0.9), 0 0 28px rgba(255,217,61,0.4)' }}
           >
             ✦ BINGO ✦
@@ -50,14 +52,14 @@ export default function CharBingoCardDisplay({ card, drawnChars, onCellTap }: Pr
         </div>
 
         {/* Column headers */}
-        <div className="grid grid-cols-5 gap-0 px-3 pt-3 pb-1.5">
+        <div className="shrink-0 grid grid-cols-5 gap-0 px-2 pt-2 pb-1">
           {COL_LABELS.map((label, c) => (
             <div
               key={label}
-              className="mx-0.5 flex items-center justify-center rounded-xl py-2 font-black text-2xl text-white"
+              className="mx-0.5 flex items-center justify-center rounded-xl py-1 font-black text-lg text-white"
               style={{
                 backgroundColor: COL[c].bg,
-                boxShadow: `0 4px 10px ${COL[c].glow}`,
+                boxShadow: `0 3px 8px ${COL[c].glow}`,
               }}
             >
               {label}
@@ -65,15 +67,18 @@ export default function CharBingoCardDisplay({ card, drawnChars, onCellTap }: Pr
           ))}
         </div>
 
-        {/* Cell grid */}
-        <div className="grid grid-cols-5 gap-0 px-3 pb-3 pt-1.5">
+        {/* Cell grid — fills remaining height */}
+        <div
+          className="flex-1 min-h-0 grid grid-cols-5 px-2 pb-2 pt-0.5"
+          style={{ position: 'relative', gridTemplateRows: 'repeat(5, minmax(0, 1fr))' }}
+        >
           {card.cells.map((row, r) =>
             row.map((cell, c) => {
-              const marked = card.marked[r][c];
-              const isFree = cell === 'FREE';
+              const marked  = card.marked[r][c];
+              const isFree  = cell === 'FREE';
               const isBingo = bingoLines.has(`${r},${c}`);
-              const col = COL[c];
-              const key = `${r}-${c}`;
+              const col     = COL[c];
+              const key     = `${r}-${c}`;
 
               const canTap = !isFree && !marked && drawnSet.has(cell as string);
 
@@ -128,12 +133,12 @@ export default function CharBingoCardDisplay({ card, drawnChars, onCellTap }: Pr
                   onClick={() => canTap && onCellTap?.(r, c)}
                   disabled={!canTap && !isFree}
                   style={cellStyle}
-                  className="mx-0.5 my-0.5 aspect-square flex items-center justify-center rounded-xl select-none transition-all active:scale-90"
+                  className="mx-0.5 my-0.5 flex items-center justify-center rounded-xl select-none transition-all active:scale-90"
                 >
                   {isFree ? (
-                    <span className="text-white text-2xl">⭐</span>
+                    <span className="text-white text-xl">⭐</span>
                   ) : (
-                    <span style={innerStyle} className={`text-lg leading-none ${innerClass}`}>
+                    <span style={innerStyle} className={`text-base leading-none ${innerClass}`}>
                       {marked ? '★' : String(cell)}
                     </span>
                   )}
@@ -141,6 +146,8 @@ export default function CharBingoCardDisplay({ card, drawnChars, onCellTap }: Pr
               );
             })
           )}
+
+          <BingoLineOverlay segments={lineSegments} />
         </div>
       </div>
     </div>

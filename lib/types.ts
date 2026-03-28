@@ -1,3 +1,5 @@
+export interface LineSegment { r1: number; c1: number; r2: number; c2: number; }
+
 export type AppScreen =
   | 'name-entry' | 'settings' | 'game' | 'result'
   | 'practice-settings' | 'practice'

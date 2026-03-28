@@ -54,7 +54,7 @@ export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onTo
   ];
 
   return (
-    <div className="flex flex-col items-center gap-5 py-6 animate-[fade-in_0.3s_ease_both]">
+    <div className="flex flex-col items-center gap-3 py-4 animate-[fade-in_0.3s_ease_both]">
 
       {/* Header */}
       <div className="w-full max-w-sm px-4 flex items-center justify-between">
@@ -71,7 +71,7 @@ export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onTo
       {/* Title */}
       <div className="text-center px-4">
         <h2
-          className="text-4xl font-black tracking-wide drop-shadow-sm"
+          className="text-2xl font-black tracking-wide drop-shadow-sm"
           style={{
             background: 'linear-gradient(90deg, #667eea 0%, #cc5de8 50%, #ff6b9d 100%)',
             WebkitBackgroundClip: 'text',
