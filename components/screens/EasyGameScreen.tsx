@@ -5,13 +5,18 @@ import type { EasyProblem, EasySettings } from '@/lib/types';
 import { generateEasyProblem, generateChoices } from '@/lib/easy-problems';
 import { getEasyBestStreak, saveEasyBestStreak } from '@/lib/storage';
 import { playCorrect, playWrong, playNewBest } from '@/lib/sounds';
+import { speakFeedback } from '@/lib/speech';
 import { saveRankEntry } from '@/lib/ranking';
 import ElapsedTimer from '@/components/ui/ElapsedTimer';
+import Mascot, { type MascotState } from '@/components/ui/Mascot';
+
+const SESSION_GOAL = 5;
 
 interface Props {
   playerName: string;
   settings: EasySettings;
   onHome: () => void;
+  onSessionComplete: (correctCount: number) => void;
 }
 
 const AUTO_ADVANCE_SECS = 3;
@@ -253,14 +258,16 @@ function VisualFeedback({ problem }: { problem: EasyProblem }) {
 
 // ── Main screen ───────────────────────────────────────────────────────────────
 
-export default function EasyGameScreen({ playerName, settings, onHome }: Props) {
-  const [problem, setProblem]       = useState<EasyProblem | null>(null);
-  const [choices, setChoices]       = useState<number[]>([]);
-  const [selected, setSelected]     = useState<number | null>(null);
-  const [feedback, setFeedback]     = useState<'correct' | 'newbest' | 'wrong' | null>(null);
-  const [streak, setStreak]         = useState(0);
-  const [bestStreak, setBestStreak] = useState(0);
-  const [countdown, setCountdown]   = useState<number | null>(null);
+export default function EasyGameScreen({ playerName, settings, onHome, onSessionComplete }: Props) {
+  const [problem, setProblem]           = useState<EasyProblem | null>(null);
+  const [choices, setChoices]           = useState<number[]>([]);
+  const [selected, setSelected]         = useState<number | null>(null);
+  const [feedback, setFeedback]         = useState<'correct' | 'newbest' | 'wrong' | null>(null);
+  const [streak, setStreak]             = useState(0);
+  const [bestStreak, setBestStreak]     = useState(0);
+  const [countdown, setCountdown]       = useState<number | null>(null);
+  const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [mascotState, setMascotState]   = useState<MascotState>('idle');
 
   const nextProblem = useCallback(() => {
     const p = generateEasyProblem(settings.operators);
@@ -270,6 +277,14 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
     setFeedback(null);
     setCountdown(null);
   }, [settings]);
+
+  // マスコットをidleに戻す
+  useEffect(() => {
+    if (mascotState !== 'idle') {
+      const t = setTimeout(() => setMascotState('idle'), 800);
+      return () => clearTimeout(t);
+    }
+  }, [mascotState]);
 
   useEffect(() => {
     setBestStreak(getEasyBestStreak(playerName));
@@ -295,18 +310,31 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
 
     if (choice === problem.answer) {
       const newStreak = streak + 1;
+      const newSessionCorrect = sessionCorrect + 1;
       setStreak(newStreak);
+      setSessionCorrect(newSessionCorrect);
+
       if (newStreak > bestStreak) {
         setBestStreak(newStreak);
         saveEasyBestStreak(playerName, newStreak);
         playNewBest();
+        speakFeedback('newbest');
+        setMascotState('veryHappy');
         setFeedback('newbest');
       } else {
         playCorrect();
+        speakFeedback('correct');
+        setMascotState('happy');
         setFeedback('correct');
+      }
+
+      if (newSessionCorrect >= SESSION_GOAL) {
+        setTimeout(() => onSessionComplete(SESSION_GOAL), 1800);
       }
     } else {
       playWrong();
+      speakFeedback('wrong');
+      setMascotState('encourage');
       setStreak(0);
       setFeedback('wrong');
     }
@@ -355,6 +383,27 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
         ちゃん、こたえをえらんでね！
       </p>
 
+      {/* セッション進捗 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-black text-gray-400 shrink-0">きょう</span>
+        <div className="flex-1 flex gap-1">
+          {Array.from({ length: SESSION_GOAL }).map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 h-3 rounded-full transition-all duration-300"
+              style={{
+                background: i < sessionCorrect
+                  ? 'var(--color-bingo-green)'
+                  : '#e5e7eb',
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-xs font-black text-gray-400 shrink-0">
+          {sessionCorrect}/{SESSION_GOAL}
+        </span>
+      </div>
+
       {/* Streak counter */}
       <div
         className="text-center bg-white rounded-2xl border-4 py-2 shadow-md"
@@ -391,36 +440,43 @@ export default function EasyGameScreen({ playerName, settings, onHome }: Props) 
       {problem && !feedback && <VisualQuestion problem={problem} />}
       {problem && feedback && <VisualFeedback problem={problem} />}
 
-      {/* Feedback banner */}
-      {feedback && (
-        <div
-          key={feedback + streak}
-          className="text-center rounded-2xl py-3 border-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-          style={
-            feedback === 'wrong'
-              ? { background: 'var(--color-bingo-blue)', borderColor: 'var(--color-bingo-blue)' }
-              : feedback === 'newbest'
-              ? { background: 'var(--color-bingo-pink)', borderColor: 'var(--color-bingo-pink)' }
-              : { background: 'var(--color-bingo-green)', borderColor: 'var(--color-bingo-green)' }
-          }
-        >
-          {feedback === 'newbest' ? (
-            <>
-              <p className="text-3xl font-black text-white">NEW BEST！ 🌟</p>
-              <p className="text-base text-white opacity-90">{streak}もん れんぞく！さいこう！</p>
-            </>
-          ) : feedback === 'correct' ? (
-            <p className="text-3xl font-black text-white">よくできました！ 🎉</p>
-          ) : (
-            <>
-              <p className="text-2xl font-black text-white mb-1">おしい！もう一回！ 💪</p>
-              <div className="bg-white rounded-xl py-2 px-4 mx-4">
-                <p className="text-xs font-bold text-gray-400 mb-0.5">せいかいは</p>
-                <p className="text-4xl font-black" style={{ color: 'var(--color-bingo-blue)' }}>{problem?.answer}</p>
-                <p className="text-xs font-bold text-gray-400 mt-0.5">だよ！</p>
-              </div>
-            </>
-          )}
+      {/* Mascot + Feedback banner */}
+      {feedback ? (
+        <div className="flex items-center gap-3">
+          <Mascot state={mascotState} size="sm" />
+          <div
+            key={feedback + streak}
+            className="flex-1 text-center rounded-2xl py-3 border-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+            style={
+              feedback === 'wrong'
+                ? { background: 'var(--color-bingo-blue)', borderColor: 'var(--color-bingo-blue)' }
+                : feedback === 'newbest'
+                ? { background: 'var(--color-bingo-pink)', borderColor: 'var(--color-bingo-pink)' }
+                : { background: 'var(--color-bingo-green)', borderColor: 'var(--color-bingo-green)' }
+            }
+          >
+            {feedback === 'newbest' ? (
+              <>
+                <p className="text-3xl font-black text-white">NEW BEST！ 🌟</p>
+                <p className="text-base text-white opacity-90">{streak}もん れんぞく！さいこう！</p>
+              </>
+            ) : feedback === 'correct' ? (
+              <p className="text-3xl font-black text-white">よくできました！ 🎉</p>
+            ) : (
+              <>
+                <p className="text-2xl font-black text-white mb-1">おしい！もう一回！ 💪</p>
+                <div className="bg-white rounded-xl py-2 px-4 mx-4">
+                  <p className="text-xs font-bold text-gray-400 mb-0.5">せいかいは</p>
+                  <p className="text-4xl font-black" style={{ color: 'var(--color-bingo-blue)' }}>{problem?.answer}</p>
+                  <p className="text-xs font-bold text-gray-400 mt-0.5">だよ！</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-center">
+          <Mascot state="idle" size="sm" />
         </div>
       )}
 

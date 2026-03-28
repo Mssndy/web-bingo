@@ -7,7 +7,8 @@ export type AppScreen =
   | 'char-settings' | 'char-game'
   | 'char-practice-settings' | 'char-practice'
   | 'minigame-plaza' | 'janken' | 'toss'
-  | 'ranking';
+  | 'ranking'
+  | 'session-complete';
 
 // ── Character mode types ──────────────────────────────────────────────────────
 

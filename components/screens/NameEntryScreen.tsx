@@ -12,6 +12,7 @@ interface Props {
   onMiniGame: (name: string) => void;
   onRanking: () => void;
   stats: PlayerStats | null;
+  stickerCount: number;
 }
 
 interface ModeCard {
@@ -25,7 +26,7 @@ interface ModeCard {
   onSelect: (name: string) => void;
 }
 
-export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, onRanking, stats }: Props) {
+export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, onRanking, stats, stickerCount }: Props) {
   const [name, setName] = useState(stats?.name ?? 'かず');
 
   const trimmed = name.trim();
@@ -172,6 +173,26 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, o
         >
           🏆 ランキング
         </button>
+
+        {stickerCount > 0 && (
+          <div
+            className="flex items-center gap-2 px-3 py-2 rounded-2xl"
+            style={{ background: 'white', border: '2px solid rgba(255,217,61,0.6)' }}
+          >
+            <span className="text-2xl">🌟</span>
+            <div>
+              <p className="text-xs font-bold text-gray-400">シールちょう</p>
+              <p className="text-lg font-black" style={{ color: 'var(--color-bingo-orange)' }}>
+                {stickerCount}まい
+              </p>
+            </div>
+            <div className="flex gap-0.5 ml-1">
+              {Array.from({ length: Math.min(stickerCount % 25 || (stickerCount > 0 ? 25 : 0), 5) }).map((_, i) => (
+                <span key={i} className="text-base">🌟</span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {stats && stats.gamesPlayed > 0 && (
           <div

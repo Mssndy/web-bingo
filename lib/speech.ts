@@ -1,5 +1,24 @@
 /** Web Speech API wrapper for character TTS. SSR-safe. */
 
+const FEEDBACK_LINES = {
+  correct:  ['すごい！', 'やったね！', 'せいかい！', 'よくできました！'],
+  newbest:  ['さいこう！', 'あたらしいきろく！', 'すごすぎる！'],
+  wrong:    ['おしい！', 'もう一回！', 'ドンマイ！'],
+  complete: ['ぜんぶできたよ！', 'やったー！', 'かんぺき！'],
+} as const;
+
+export function speakFeedback(type: keyof typeof FEEDBACK_LINES, locale = 'ja-JP'): void {
+  if (!isSpeechAvailable()) return;
+  const lines = FEEDBACK_LINES[type];
+  const text = lines[Math.floor(Math.random() * lines.length)];
+  const utter = new SpeechSynthesisUtterance(text);
+  utter.lang = locale;
+  utter.rate = 0.85;
+  utter.pitch = 1.3;
+  window.speechSynthesis.cancel();
+  window.speechSynthesis.speak(utter);
+}
+
 export function isSpeechAvailable(): boolean {
   return typeof window !== 'undefined' && 'speechSynthesis' in window;
 }

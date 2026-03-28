@@ -3,31 +3,37 @@
 import { useState, useEffect, useCallback } from 'react';
 import type { CharPracticeSettings } from '@/lib/types';
 import { getCharSet, CHAR_LOCALE, ROMAJI, generateCharChoices } from '@/lib/characters';
-import { speakChar } from '@/lib/speech';
+import { speakChar, speakFeedback } from '@/lib/speech';
 import { getCharBestStreak, saveCharBestStreak } from '@/lib/storage';
 import { playCorrect, playWrong, playNewBest } from '@/lib/sounds';
 import { saveRankEntry } from '@/lib/ranking';
 import ElapsedTimer from '@/components/ui/ElapsedTimer';
+import Mascot, { type MascotState } from '@/components/ui/Mascot';
+
+const SESSION_GOAL = 5;
 
 interface Props {
   playerName: string;
   settings: CharPracticeSettings;
   onHome: () => void;
+  onSessionComplete: (correctCount: number) => void;
 }
 
 const AUTO_ADVANCE_SECS = 3;
 
-export default function CharPracticeGameScreen({ playerName, settings, onHome }: Props) {
+export default function CharPracticeGameScreen({ playerName, settings, onHome, onSessionComplete }: Props) {
   const chars = getCharSet(settings.contentType);
   const locale = CHAR_LOCALE[settings.contentType];
 
-  const [currentChar, setCurrentChar] = useState<string>('');
-  const [choices, setChoices]         = useState<string[]>([]);
-  const [selected, setSelected]       = useState<string | null>(null);
-  const [feedback, setFeedback]       = useState<'correct' | 'newbest' | 'wrong' | null>(null);
-  const [streak, setStreak]           = useState(0);
-  const [bestStreak, setBestStreak]   = useState(0);
-  const [countdown, setCountdown]     = useState<number | null>(null);
+  const [currentChar, setCurrentChar]       = useState<string>('');
+  const [choices, setChoices]               = useState<string[]>([]);
+  const [selected, setSelected]             = useState<string | null>(null);
+  const [feedback, setFeedback]             = useState<'correct' | 'newbest' | 'wrong' | null>(null);
+  const [streak, setStreak]                 = useState(0);
+  const [bestStreak, setBestStreak]         = useState(0);
+  const [countdown, setCountdown]           = useState<number | null>(null);
+  const [sessionCorrect, setSessionCorrect] = useState(0);
+  const [mascotState, setMascotState]       = useState<MascotState>('idle');
 
   const nextQuestion = useCallback(() => {
     const randomChar = chars[Math.floor(Math.random() * chars.length)];
@@ -39,6 +45,14 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
     // Auto-play TTS for new character
     speakChar(randomChar, locale);
   }, [chars, locale]);
+
+  // マスコットをidleに戻す
+  useEffect(() => {
+    if (mascotState !== 'idle') {
+      const t = setTimeout(() => setMascotState('idle'), 800);
+      return () => clearTimeout(t);
+    }
+  }, [mascotState]);
 
   // Init
   useEffect(() => {
@@ -67,18 +81,31 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
 
     if (choice === currentChar) {
       const newStreak = streak + 1;
+      const newSessionCorrect = sessionCorrect + 1;
       setStreak(newStreak);
+      setSessionCorrect(newSessionCorrect);
+
       if (newStreak > bestStreak) {
         setBestStreak(newStreak);
         saveCharBestStreak(playerName, settings.contentType, newStreak);
         playNewBest();
+        speakFeedback('newbest', locale);
+        setMascotState('veryHappy');
         setFeedback('newbest');
       } else {
         playCorrect();
+        speakFeedback('correct', locale);
+        setMascotState('happy');
         setFeedback('correct');
+      }
+
+      if (newSessionCorrect >= SESSION_GOAL) {
+        setTimeout(() => onSessionComplete(SESSION_GOAL), 1800);
       }
     } else {
       playWrong();
+      speakFeedback('wrong', locale);
+      setMascotState('encourage');
       setStreak(0);
       setFeedback('wrong');
     }
@@ -116,6 +143,27 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
         <span className="font-black text-[var(--color-bingo-purple)]">{playerName}</span>
         ちゃん、おとをきいてもじをえらんでね！
       </p>
+
+      {/* セッション進捗 */}
+      <div className="flex items-center gap-2">
+        <span className="text-xs font-black text-gray-400 shrink-0">きょう</span>
+        <div className="flex-1 flex gap-1">
+          {Array.from({ length: SESSION_GOAL }).map((_, i) => (
+            <div
+              key={i}
+              className="flex-1 h-3 rounded-full transition-all duration-300"
+              style={{
+                background: i < sessionCorrect
+                  ? 'var(--color-bingo-purple)'
+                  : '#e5e7eb',
+              }}
+            />
+          ))}
+        </div>
+        <span className="text-xs font-black text-gray-400 shrink-0">
+          {sessionCorrect}/{SESSION_GOAL}
+        </span>
+      </div>
 
       {/* Streak counter */}
       <div
@@ -163,41 +211,48 @@ export default function CharPracticeGameScreen({ playerName, settings, onHome }:
         )}
       </div>
 
-      {/* Feedback banner */}
-      {feedback && (
-        <div
-          key={feedback + streak}
-          className="text-center rounded-2xl py-3 border-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-          style={
-            feedback === 'wrong'
-              ? { background: 'var(--color-bingo-blue)', borderColor: 'var(--color-bingo-blue)' }
-              : feedback === 'newbest'
-              ? { background: 'var(--color-bingo-pink)', borderColor: 'var(--color-bingo-pink)' }
-              : { background: 'var(--color-bingo-green)', borderColor: 'var(--color-bingo-green)' }
-          }
-        >
-          {feedback === 'newbest' ? (
-            <>
-              <p className="text-3xl font-black text-white">NEW BEST！ 🌟</p>
-              <p className="text-base text-white opacity-90">{streak}もん れんぞく！さいこう！</p>
-            </>
-          ) : feedback === 'correct' ? (
-            <p className="text-3xl font-black text-white">よくできました！ 🎉</p>
-          ) : (
-            <>
-              <p className="text-2xl font-black text-white mb-1">おしい！もう一回！ 💪</p>
-              <div className="bg-white rounded-xl py-2 px-4 mx-4">
-                <p className="text-xs font-bold text-gray-400 mb-0.5">せいかいは</p>
-                <p className="text-4xl font-black" style={{ color: 'var(--color-bingo-blue)' }}>
-                  {currentChar}
-                </p>
-                {romaji && (
-                  <p className="text-sm font-bold text-gray-400 mt-0.5">{romaji}</p>
-                )}
-                <p className="text-xs font-bold text-gray-400 mt-0.5">だよ！</p>
-              </div>
-            </>
-          )}
+      {/* Mascot + Feedback banner */}
+      {feedback ? (
+        <div className="flex items-center gap-3">
+          <Mascot state={mascotState} size="sm" />
+          <div
+            key={feedback + streak}
+            className="flex-1 text-center rounded-2xl py-3 border-4 animate-[bounce-in_0.5s_cubic-bezier(0.34,1.56,0.64,1)_both]"
+            style={
+              feedback === 'wrong'
+                ? { background: 'var(--color-bingo-blue)', borderColor: 'var(--color-bingo-blue)' }
+                : feedback === 'newbest'
+                ? { background: 'var(--color-bingo-pink)', borderColor: 'var(--color-bingo-pink)' }
+                : { background: 'var(--color-bingo-green)', borderColor: 'var(--color-bingo-green)' }
+            }
+          >
+            {feedback === 'newbest' ? (
+              <>
+                <p className="text-3xl font-black text-white">NEW BEST！ 🌟</p>
+                <p className="text-base text-white opacity-90">{streak}もん れんぞく！さいこう！</p>
+              </>
+            ) : feedback === 'correct' ? (
+              <p className="text-3xl font-black text-white">よくできました！ 🎉</p>
+            ) : (
+              <>
+                <p className="text-2xl font-black text-white mb-1">おしい！もう一回！ 💪</p>
+                <div className="bg-white rounded-xl py-2 px-4 mx-4">
+                  <p className="text-xs font-bold text-gray-400 mb-0.5">せいかいは</p>
+                  <p className="text-4xl font-black" style={{ color: 'var(--color-bingo-blue)' }}>
+                    {currentChar}
+                  </p>
+                  {romaji && (
+                    <p className="text-sm font-bold text-gray-400 mt-0.5">{romaji}</p>
+                  )}
+                  <p className="text-xs font-bold text-gray-400 mt-0.5">だよ！</p>
+                </div>
+              </>
+            )}
+          </div>
+        </div>
+      ) : (
+        <div className="flex justify-center">
+          <Mascot state="idle" size="sm" />
         </div>
       )}
 

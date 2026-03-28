@@ -83,3 +83,20 @@ export function saveCharBestStreak(playerName: string, contentType: string, stre
   if (typeof window === 'undefined') return;
   localStorage.setItem(`${CHAR_STREAK_KEY_PREFIX}${contentType}_${playerName}`, String(streak));
 }
+
+// ── シール ────────────────────────────────────────────────────────────────────
+
+export function getStickerCount(playerName: string): number {
+  if (typeof window === 'undefined') return 0;
+  try {
+    return parseInt(localStorage.getItem(`stickers_${playerName}`) ?? '0', 10);
+  } catch {
+    return 0;
+  }
+}
+
+export function addSticker(playerName: string): number {
+  const next = getStickerCount(playerName) + 1;
+  localStorage.setItem(`stickers_${playerName}`, String(next));
+  return next;
+}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings, EasySettings, CharGameSettings, CharPracticeSettings } from '@/lib/types';
-import { loadStatsForPlayer, saveStats, createEmptyStats } from '@/lib/storage';
+import { loadStatsForPlayer, saveStats, createEmptyStats, getStickerCount, addSticker } from '@/lib/storage';
 import {
   createInitialGameState,
   drawNextNumber,
@@ -30,6 +30,7 @@ import JankenGameScreen from '@/components/screens/JankenGameScreen';
 import TossGameScreen from '@/components/screens/TossGameScreen';
 import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
 import RankingScreen from '@/components/screens/RankingScreen';
+import SessionCompleteScreen from '@/components/screens/SessionCompleteScreen';
 import {
   generateCharBingoCard,
   createInitialCharGameState,
@@ -72,6 +73,14 @@ export default function BingoApp() {
   });
   // Tracks whether the result screen should show the auto-bingo celebration
   const [resultIsAutoBingo, setResultIsAutoBingo] = useState(false);
+
+  const [sessionResult, setSessionResult] = useState<{
+    correctCount: number;
+    stickerCount: number;
+    mode: 'easy' | 'char-practice';
+  } | null>(null);
+
+  const [stickerCount, setStickerCount] = useState(0);
 
   // Always-fresh refs to avoid stale closures in auto-draw timers
   const gameStateRef = useRef<GameState | null>(null);
@@ -121,6 +130,7 @@ export default function BingoApp() {
   useEffect(() => {
     if (!playerName) return;
     setStats(loadStatsForPlayer(playerName));
+    setStickerCount(getStickerCount(playerName));
   }, [playerName]);
 
   // Clean up timer on unmount
@@ -267,6 +277,13 @@ export default function BingoApp() {
     setScreen('char-settings');
   }
 
+  function handleSessionComplete(correctCount: number, mode: 'easy' | 'char-practice') {
+    const newCount = addSticker(playerName);
+    setStickerCount(newCount);
+    setSessionResult({ correctCount, stickerCount: newCount, mode });
+    setScreen('session-complete');
+  }
+
   function handleGoToMiniGamePlaza(name: string) {
     setPlayerName(name);
     setScreen('minigame-plaza');
@@ -326,6 +343,7 @@ export default function BingoApp() {
           onMiniGame={handleGoToMiniGamePlaza}
           onRanking={() => setScreen('ranking')}
           stats={stats}
+          stickerCount={stickerCount}
         />
       )}
       {screen === 'settings' && (
@@ -389,6 +407,7 @@ export default function BingoApp() {
           playerName={playerName}
           settings={easySettings}
           onHome={handleBackToName}
+          onSessionComplete={(n) => handleSessionComplete(n, 'easy')}
         />
       )}
       {screen === 'char-settings' && (
@@ -426,6 +445,7 @@ export default function BingoApp() {
           playerName={playerName}
           settings={charPracticeSettings}
           onHome={handleBackToName}
+          onSessionComplete={(n) => handleSessionComplete(n, 'char-practice')}
         />
       )}
       {screen === 'minigame-plaza' && (
@@ -450,6 +470,16 @@ export default function BingoApp() {
       )}
       {screen === 'ranking' && (
         <RankingScreen onHome={() => setScreen('name-entry')} />
+      )}
+      {screen === 'session-complete' && sessionResult && (
+        <SessionCompleteScreen
+          playerName={playerName}
+          correctCount={sessionResult.correctCount}
+          stickerCount={sessionResult.stickerCount}
+          mode={sessionResult.mode}
+          onPlayAgain={() => setScreen(sessionResult.mode === 'easy' ? 'easy' : 'char-practice')}
+          onHome={() => { setSessionResult(null); setScreen('name-entry'); }}
+        />
       )}
     </main>
   );
