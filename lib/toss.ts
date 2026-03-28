@@ -65,18 +65,16 @@ export function calcTossScore(grid: number[][], lineCells: Set<string>): number 
 export type GaugeZone = 'perfect' | 'good' | 'ok' | 'miss';
 
 /**
- * Determine which zone the gauge needle landed in.
- * 0° = 12 o'clock (top), increases clockwise.
- * PERFECT: within ±15° of top
- * GOOD:    within ±60°  (excluding PERFECT)
- * OK:      within ±120° (excluding GOOD)
- * MISS:    remaining bottom arc
+ * Determine zone from a normalised ring radius (0 = dot = smallest, 1 = full size).
+ * PERFECT: ring is nearly a dot (nr < 0.15)
+ * GOOD:    small ring (0.15–0.45)
+ * OK:      medium ring (0.45–0.75)
+ * MISS:    large ring (0.75–1.0)
  */
-export function getZoneFromAngle(angle: number): GaugeZone {
-  const dist = angle <= 180 ? angle : 360 - angle;
-  if (dist < 15)  return 'perfect';
-  if (dist < 60)  return 'good';
-  if (dist < 120) return 'ok';
+export function getZoneFromRadius(nr: number): GaugeZone {
+  if (nr < 0.15) return 'perfect';
+  if (nr < 0.45) return 'good';
+  if (nr < 0.75) return 'ok';
   return 'miss';
 }
 

@@ -3,7 +3,7 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import {
   generateTossGrid, checkTossLines, calcTossScore, TOSS_BALLS,
-  GaugeZone, getZoneFromAngle, calcLandingCell,
+  GaugeZone, getZoneFromRadius, calcLandingCell,
 } from '@/lib/toss';
 import { playToss, playLand, playBingo, playCorrect, playWrong, playGaugeStop } from '@/lib/sounds';
 
@@ -20,44 +20,31 @@ interface FlyingBall {
   toY: number;
 }
 
-type Phase = 'play' | 'aiming' | 'result';
+type Phase     = 'play' | 'aiming' | 'result';
+type RingSpeed = 'slow' | 'normal' | 'fast';
 
-// ── SVG Gauge helpers ─────────────────────────────────────────────────────────
-
-/** Convert clock-angle (0° = 12 o'clock, clockwise) to SVG x,y coordinates. */
-function polarToXY(cx: number, cy: number, r: number, deg: number) {
-  const rad = (deg - 90) * (Math.PI / 180);
-  return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
-}
-
-/** Annular sector path (donut slice) between startDeg and endDeg. */
-function donutSeg(
-  cx: number, cy: number,
-  ir: number, or: number,
-  startDeg: number, endDeg: number,
-): string {
-  const s1 = polarToXY(cx, cy, ir, startDeg);
-  const e1 = polarToXY(cx, cy, ir, endDeg);
-  const s2 = polarToXY(cx, cy, or, startDeg);
-  const e2 = polarToXY(cx, cy, or, endDeg);
-  const large = endDeg - startDeg > 180 ? 1 : 0;
-  return [
-    `M ${s2.x.toFixed(2)} ${s2.y.toFixed(2)}`,
-    `A ${or} ${or} 0 ${large} 1 ${e2.x.toFixed(2)} ${e2.y.toFixed(2)}`,
-    `L ${e1.x.toFixed(2)} ${e1.y.toFixed(2)}`,
-    `A ${ir} ${ir} 0 ${large} 0 ${s1.x.toFixed(2)} ${s1.y.toFixed(2)}`,
-    'Z',
-  ].join(' ');
-}
-
-// ── Zone config ───────────────────────────────────────────────────────────────
-
-const ZONE_CFG: Record<GaugeZone, { label: string; emoji: string; color: string }> = {
-  perfect: { label: 'PERFECT!', emoji: '🎯', color: '#16a34a' },
-  good:    { label: 'GOOD!',    emoji: '✨', color: '#d97706' },
-  ok:      { label: 'まあまあ…', emoji: '😅', color: '#ea580c' },
-  miss:    { label: 'あーあ！',  emoji: '💦', color: '#dc2626' },
+const RING_SPEEDS: Record<RingSpeed, number> = {
+  slow:   0.8,
+  normal: 1.3,
+  fast:   2.1,
 };
+
+// Ring colour per zone
+function zoneColor(nr: number) {
+  if (nr < 0.15) return '#22c55e';
+  if (nr < 0.45) return '#fbbf24';
+  if (nr < 0.75) return '#f97316';
+  return '#ef4444';
+}
+function zoneLabel(nr: number) {
+  if (nr < 0.15) return '🎯 PERFECT!';
+  if (nr < 0.45) return '✨ GOOD!';
+  if (nr < 0.75) return '😅 まあまあ…';
+  return '💦 あーあ！';
+}
+function zoneColorSolid(zone: GaugeZone) {
+  return zone === 'perfect' ? '#16a34a' : zone === 'good' ? '#d97706' : zone === 'ok' ? '#ea580c' : '#dc2626';
+}
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -65,174 +52,171 @@ function emptyMarked(): boolean[][] {
   return Array.from({ length: 5 }, () => Array(5).fill(false));
 }
 
-// ── GaugeOverlay sub-component ────────────────────────────────────────────────
+// ── RingOverlay ───────────────────────────────────────────────────────────────
+// Full-screen fixed SVG overlay. The ring pulsates from a dot to maxRadius around
+// the targeted cell. Tap anywhere to freeze and lock in the current ring size.
 
-function GaugeOverlay({
-  stoppedZone,
-  onStop,
+function RingOverlay({
+  cx, cy, maxR, speed, onStop,
 }: {
-  stoppedZone: GaugeZone | null;
+  cx: number;
+  cy: number;
+  maxR: number;
+  speed: number;  // cycles per second
   onStop: (zone: GaugeZone) => void;
 }) {
-  const needleGroupRef = useRef<SVGGElement>(null);
-  const angleRef       = useRef(Math.random() * 360);
-  const stoppedRef     = useRef(false);
-  const rafRef         = useRef<number>(0);
+  const ringRef     = useRef<SVGCircleElement>(null);
+  const glowRef     = useRef<SVGCircleElement>(null);
+  const dotRef      = useRef<SVGCircleElement>(null);
+  const badgeRectRef = useRef<SVGRectElement>(null);
+  const badgeTextRef = useRef<SVGTextElement>(null);
+  const nrRef       = useRef(0);
+  const stoppedRef  = useRef(false);
+  const rafRef      = useRef<number>(0);
+  const startRef    = useRef<number | null>(null);
 
   useEffect(() => {
-    if (stoppedZone) return;
-
-    const SPEED = 255; // degrees per second
-    let last: number | null = null;
-
     function tick(t: number) {
       if (stoppedRef.current) return;
-      if (last !== null) {
-        const dt = (t - last) / 1000;
-        angleRef.current = (angleRef.current + SPEED * dt) % 360;
-        needleGroupRef.current?.setAttribute(
-          'transform',
-          `rotate(${angleRef.current.toFixed(1)}, 100, 100)`,
-        );
-      }
-      last = t;
+      if (startRef.current === null) startRef.current = t;
+
+      // Triangle wave 0 → 1 → 0, period = 1/speed seconds
+      const elapsed = (t - startRef.current) / 1000;
+      const phase   = (elapsed * speed) % 1;
+      const nr      = phase < 0.5 ? phase * 2 : (1 - phase) * 2;
+      nrRef.current = nr;
+
+      const r     = nr * maxR;
+      const col   = zoneColor(nr);
+      const sw    = 3.5 + (1 - nr) * 2;          // thicker when tiny
+      const dotR  = 5 + (1 - nr) * 7;            // bigger dot when tiny
+      const ringOp = r < 8 ? 0 : 0.90;
+
+      ringRef.current?.setAttribute('r',              Math.max(r, 0.1).toFixed(1));
+      ringRef.current?.setAttribute('stroke',         col);
+      ringRef.current?.setAttribute('stroke-width',   sw.toFixed(1));
+      ringRef.current?.setAttribute('stroke-opacity', ringOp.toString());
+
+      glowRef.current?.setAttribute('r',              Math.max(r, 0.1).toFixed(1));
+      glowRef.current?.setAttribute('stroke',         col);
+      glowRef.current?.setAttribute('stroke-opacity', (r < 8 ? 0 : 0.28).toString());
+
+      dotRef.current?.setAttribute('r',    dotR.toFixed(1));
+      dotRef.current?.setAttribute('fill', col);
+
       rafRef.current = requestAnimationFrame(tick);
     }
     rafRef.current = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(rafRef.current);
-  }, [stoppedZone]);
+  }, [cx, cy, maxR, speed]);
 
   function handleTap() {
-    if (stoppedRef.current || stoppedZone) return;
+    if (stoppedRef.current) return;
     stoppedRef.current = true;
     cancelAnimationFrame(rafRef.current);
     playGaugeStop();
-    onStop(getZoneFromAngle(angleRef.current));
+
+    const nr   = nrRef.current;
+    const r    = nr * maxR;
+    const col  = zoneColorSolid(getZoneFromRadius(nr));
+    const lbl  = zoneLabel(nr);
+    const bW   = 172;
+    const bH   = 44;
+    const badgeY = cy - r - 60 > 60 ? cy - r - 60 : cy + r + 16;
+
+    // Freeze ring visuals
+    ringRef.current?.setAttribute('r',              Math.max(r, 0.1).toFixed(1));
+    ringRef.current?.setAttribute('stroke',         col);
+    ringRef.current?.setAttribute('stroke-width',   '4.5');
+    ringRef.current?.setAttribute('stroke-opacity', '1');
+    glowRef.current?.setAttribute('stroke-opacity', '0');
+    dotRef.current?.setAttribute('r',    '7');
+    dotRef.current?.setAttribute('fill', col);
+
+    // Show badge
+    if (badgeRectRef.current) {
+      badgeRectRef.current.setAttribute('x',    (cx - bW / 2).toFixed(1));
+      badgeRectRef.current.setAttribute('y',    badgeY.toFixed(1));
+      badgeRectRef.current.setAttribute('fill', col);
+      badgeRectRef.current.style.display = '';
+    }
+    if (badgeTextRef.current) {
+      badgeTextRef.current.setAttribute('x', cx.toFixed(1));
+      badgeTextRef.current.setAttribute('y', (badgeY + bH / 2).toFixed(1));
+      badgeTextRef.current.textContent = lbl;
+      badgeTextRef.current.style.display = '';
+    }
+
+    onStop(getZoneFromRadius(nr));
   }
 
-  const CX = 100, CY = 100, IR = 24, OR = 86;
-
-  // Zone boundary tick marks (angles where zones change)
-  const ticks = [15, 60, 120, 240, 300, 345];
+  const bW = 172, bH = 44;
 
   return (
-    <div
-      className="flex flex-col items-center gap-2 animate-[fade-in_0.25s_ease_both]"
-      onClick={stoppedZone ? undefined : handleTap}
-      style={{ cursor: stoppedZone ? 'default' : 'pointer', userSelect: 'none' }}
+    <svg
+      style={{
+        position: 'fixed',
+        inset: 0,
+        width: '100vw',
+        height: '100vh',
+        zIndex: 150,
+        cursor: 'pointer',
+        pointerEvents: 'all',
+        touchAction: 'none',
+      }}
+      onClick={handleTap}
     >
-      {/* Zone feedback badge (appears after stopping) */}
-      <div style={{ minHeight: 38 }} className="flex items-center justify-center">
-        {stoppedZone && (
-          <div
-            className="px-5 py-1.5 rounded-full text-white font-black text-lg animate-[bounce-in_0.32s_cubic-bezier(0.34,1.56,0.64,1)_both]"
-            style={{ background: ZONE_CFG[stoppedZone].color }}
-          >
-            {ZONE_CFG[stoppedZone].emoji} {ZONE_CFG[stoppedZone].label}
-          </div>
-        )}
-      </div>
+      {/* Subtle full-screen dim */}
+      <rect x={0} y={0} width="100%" height="100%" fill="rgba(0,0,0,0.14)" />
 
-      {/* SVG gauge */}
-      <svg
-        viewBox="0 0 200 200"
-        width={190}
-        height={190}
-        style={{ filter: 'drop-shadow(0 4px 16px rgba(0,0,0,0.45))' }}
+      {/* Glow ring (wider, more transparent) */}
+      <circle
+        ref={glowRef}
+        cx={cx} cy={cy} r={0.1}
+        stroke="#22c55e" strokeWidth={12}
+        fill="none" strokeOpacity={0}
+      />
+
+      {/* Main ring */}
+      <circle
+        ref={ringRef}
+        cx={cx} cy={cy} r={0.1}
+        stroke="#22c55e" strokeWidth={4}
+        fill="none" strokeOpacity={0}
+      />
+
+      {/* Center dot */}
+      <circle
+        ref={dotRef}
+        cx={cx} cy={cy} r={12}
+        fill="#22c55e"
+      />
+
+      {/* Badge (hidden until stopped) */}
+      <rect
+        ref={badgeRectRef}
+        x={cx - bW / 2} y={cy - 80}
+        width={bW} height={bH} rx={bH / 2}
+        fill="#16a34a"
+        style={{ display: 'none' }}
+      />
+      <text
+        ref={badgeTextRef}
+        x={cx} y={cy - 58}
+        textAnchor="middle" dominantBaseline="central"
+        fontSize={17} fontWeight={900} fill="white"
+        style={{ display: 'none' }}
       >
-        {/* Outer ring background */}
-        <circle cx={CX} cy={CY} r={OR + 5} fill="#1e293b" />
-
-        {/* MISS zone — bottom 120° (120→240) */}
-        <path d={donutSeg(CX, CY, IR, OR, 120, 240)} fill="#ef4444" />
-
-        {/* OK zones — 60→120 and 240→300 */}
-        <path d={donutSeg(CX, CY, IR, OR, 60, 120)}  fill="#f97316" />
-        <path d={donutSeg(CX, CY, IR, OR, 240, 300)} fill="#f97316" />
-
-        {/* GOOD zones — 15→60 and 300→345 */}
-        <path d={donutSeg(CX, CY, IR, OR, 15, 60)}   fill="#fbbf24" />
-        <path d={donutSeg(CX, CY, IR, OR, 300, 345)} fill="#fbbf24" />
-
-        {/* PERFECT zone — split across 0° (345→360 and 0→15) */}
-        <path d={donutSeg(CX, CY, IR, OR, 345, 360)} fill="#22c55e" />
-        <path d={donutSeg(CX, CY, IR, OR, 0, 15)}    fill="#22c55e" />
-
-        {/* Zone boundary dividers */}
-        {ticks.map(deg => {
-          const inner = polarToXY(CX, CY, IR + 1, deg);
-          const outer = polarToXY(CX, CY, OR - 1, deg);
-          return (
-            <line
-              key={deg}
-              x1={inner.x} y1={inner.y}
-              x2={outer.x} y2={outer.y}
-              stroke="#1e293b" strokeWidth={2}
-            />
-          );
-        })}
-
-        {/* Zone emoji labels */}
-        {([
-          [0,    '🎯'],
-          [37.5, '✨'],
-          [90,   '😅'],
-          [180,  '💦'],
-          [270,  '😅'],
-          [322.5,'✨'],
-        ] as [number, string][]).map(([deg, emoji]) => {
-          const mid = polarToXY(CX, CY, (IR + OR) / 2, deg);
-          return (
-            <text
-              key={deg}
-              x={mid.x} y={mid.y}
-              textAnchor="middle"
-              dominantBaseline="central"
-              fontSize={deg === 0 || deg === 180 ? 14 : 11}
-            >
-              {emoji}
-            </text>
-          );
-        })}
-
-        {/* Spinning needle */}
-        <g
-          ref={needleGroupRef}
-          transform={`rotate(${angleRef.current.toFixed(1)}, 100, 100)`}
-        >
-          <line
-            x1={CX} y1={CY}
-            x2={CX} y2={CY - OR + 4}
-            stroke="white" strokeWidth={5} strokeLinecap="round"
-          />
-          <circle cx={CX} cy={CY - OR + 6} r={7} fill="white" />
-        </g>
-
-        {/* Center cap */}
-        <circle cx={CX} cy={CY} r={13} fill="white" />
-        <circle cx={CX} cy={CY} r={7}  fill="#374151" />
-      </svg>
-
-      {!stoppedZone && (
-        <p className="text-base font-black text-gray-500 animate-pulse">
-          ⚾ タップして なげる！
-        </p>
-      )}
-    </div>
+        🎯 PERFECT!
+      </text>
+    </svg>
   );
 }
 
-// ── Cell sub-component ────────────────────────────────────────────────────────
+// ── Cell ──────────────────────────────────────────────────────────────────────
 
 function Cell({
-  number,
-  marked,
-  inLine,
-  justLanded,
-  isTarget,
-  disabled,
-  onClick,
-  cellRef,
+  number, marked, inLine, justLanded, isTarget, disabled, onClick, cellRef,
 }: {
   number: number;
   marked: boolean;
@@ -245,28 +229,17 @@ function Cell({
 }) {
   const bg = inLine
     ? 'linear-gradient(160deg, #FEF08A, #FCD34D)'
-    : marked
-    ? 'linear-gradient(160deg, #92400E, #78350F)'
-    : isTarget
-    ? 'linear-gradient(160deg, #DBEAFE, #BFDBFE)'
+    : marked   ? 'linear-gradient(160deg, #92400E, #78350F)'
+    : isTarget ? 'linear-gradient(160deg, #DBEAFE, #BFDBFE)'
     : 'linear-gradient(160deg, #FFFBEB, #FEF3C7)';
 
-  const borderColor = isTarget
-    ? '#3b82f6'
-    : inLine  ? '#B45309'
+  const borderColor = isTarget ? '#3b82f6'
+    : inLine ? '#B45309'
     : marked  ? '#451A03'
     : '#92400E';
 
-  const shadow = marked
-    ? 'inset 0 2px 6px rgba(0,0,0,0.35)'
-    : 'inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.18)';
-
-  const animation = justLanded
-    ? 'cell-catch 0.38s cubic-bezier(0.34,1.56,0.64,1) both'
-    : isTarget
-    ? 'target-pulse 1s ease-in-out infinite'
-    : inLine
-    ? undefined
+  const animation = justLanded ? 'cell-catch 0.38s cubic-bezier(0.34,1.56,0.64,1) both'
+    : isTarget ? 'target-pulse 1s ease-in-out infinite'
     : undefined;
 
   return (
@@ -279,51 +252,38 @@ function Cell({
         border: `3px solid ${borderColor}`,
         borderRadius: 5,
         background: bg,
-        boxShadow: shadow,
+        boxShadow: marked
+          ? 'inset 0 2px 6px rgba(0,0,0,0.35)'
+          : 'inset 0 -2px 3px rgba(0,0,0,0.08), 0 2px 4px rgba(0,0,0,0.18)',
         cursor: disabled || marked ? 'default' : 'pointer',
         animation,
         transition: 'background 0.25s, border-color 0.25s',
       }}
     >
-      {/* Shine overlay */}
-      <div
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background: 'linear-gradient(135deg, rgba(255,255,255,0.28) 0%, transparent 55%)',
-          borderRadius: 3,
-        }}
-      />
+      <div className="absolute inset-0 pointer-events-none" style={{
+        background: 'linear-gradient(135deg,rgba(255,255,255,0.28) 0%,transparent 55%)',
+        borderRadius: 3,
+      }} />
 
       {marked ? (
         <>
-          <span
-            className="text-xl leading-none relative z-10"
-            style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.45))' }}
-          >
-            ⚾
-          </span>
-          <span
-            className="absolute bottom-0.5 right-1 leading-none relative z-10 font-black"
-            style={{ fontSize: 9, color: inLine ? '#78350F' : 'rgba(255,255,255,0.55)' }}
-          >
+          <span className="text-xl leading-none relative z-10"
+            style={{ filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.45))' }}>⚾</span>
+          <span className="absolute bottom-0.5 right-1 leading-none relative z-10 font-black"
+            style={{ fontSize: 9, color: inLine ? '#78350F' : 'rgba(255,255,255,0.55)' }}>
             {number}
           </span>
         </>
       ) : (
-        <span
-          className="text-base font-black relative z-10 leading-none"
-          style={{ color: isTarget ? '#1d4ed8' : '#78350F' }}
-        >
+        <span className="text-base font-black relative z-10 leading-none"
+          style={{ color: isTarget ? '#1d4ed8' : '#78350F' }}>
           {number}
         </span>
       )}
 
-      {/* Bingo line shimmer */}
       {inLine && (
-        <div
-          className="absolute inset-0 rounded pointer-events-none"
-          style={{ animation: 'toss-bingo-line 1.4s ease-in-out infinite' }}
-        />
+        <div className="absolute inset-0 rounded pointer-events-none"
+          style={{ animation: 'toss-bingo-line 1.4s ease-in-out infinite' }} />
       )}
     </div>
   );
@@ -332,19 +292,20 @@ function Cell({
 // ── Main Screen ───────────────────────────────────────────────────────────────
 
 export default function TossGameScreen({ playerName, onHome }: Props) {
-  const [grid, setGrid]             = useState<number[][]>(() => generateTossGrid());
-  const [marked, setMarked]         = useState<boolean[][]>(emptyMarked);
-  const [ballsLeft, setBallsLeft]   = useState(TOSS_BALLS);
+  const [grid, setGrid]           = useState<number[][]>(() => generateTossGrid());
+  const [marked, setMarked]       = useState<boolean[][]>(emptyMarked);
+  const [ballsLeft, setBallsLeft] = useState(TOSS_BALLS);
   const [flyingBall, setFlyingBall] = useState<FlyingBall | null>(null);
   const [justLanded, setJustLanded] = useState<string | null>(null);
-  const [lineCells, setLineCells]   = useState<Set<string>>(new Set());
-  const [lineCount, setLineCount]   = useState(0);
-  const [phase, setPhase]           = useState<Phase>('play');
-  const [score, setScore]           = useState(0);
-  const [aimTarget, setAimTarget]   = useState<{ row: number; col: number } | null>(null);
-  const [stoppedZone, setStoppedZone] = useState<GaugeZone | null>(null);
+  const [lineCells, setLineCells] = useState<Set<string>>(new Set());
+  const [lineCount, setLineCount] = useState(0);
+  const [phase, setPhase]         = useState<Phase>('play');
+  const [score, setScore]         = useState(0);
+  const [aimTarget, setAimTarget] = useState<{ row: number; col: number } | null>(null);
+  // Position/size of the target cell for the ring overlay
+  const [ringPos, setRingPos]     = useState<{ cx: number; cy: number; maxR: number } | null>(null);
+  const [ringSpeed, setRingSpeed] = useState<RingSpeed>('normal');
 
-  // Always-fresh refs to avoid stale closures inside setTimeout
   const markedRef    = useRef(marked);
   const ballsLeftRef = useRef(ballsLeft);
   const lineCellsRef = useRef(lineCells);
@@ -354,7 +315,6 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
   lineCellsRef.current = lineCells;
   lineCountRef.current = lineCount;
 
-  // Ref to track the actual landing cell across async steps
   const throwTargetRef = useRef<[number, number] | null>(null);
   const ballIdRef      = useRef(0);
 
@@ -363,28 +323,35 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
   );
   const launcherRef = useRef<HTMLDivElement>(null);
 
-  // ── Step 1: Player taps a cell → enter aiming phase ─────────────────────────
+  // ── Step 1: tap a cell → enter aiming, show ring around that cell ────────────
 
   const handleCellTap = useCallback((row: number, col: number) => {
     if (flyingBall || ballsLeftRef.current === 0 || markedRef.current[row][col] || phase !== 'play') return;
+
+    const cellEl = cellRefs.current[row][col];
+    if (cellEl) {
+      const rect = cellEl.getBoundingClientRect();
+      setRingPos({
+        cx:   rect.left + rect.width  / 2,
+        cy:   rect.top  + rect.height / 2,
+        maxR: rect.width * 2.6,
+      });
+    }
     setAimTarget({ row, col });
-    setStoppedZone(null);
     setPhase('aiming');
   }, [flyingBall, phase]);
 
-  // ── Step 2: Gauge stopped → calc landing, brief feedback, then throw ─────────
+  // ── Step 2: ring tapped → zone determined, brief freeze, then throw ──────────
 
-  const handleGaugeStop = useCallback((zone: GaugeZone) => {
+  const handleRingStop = useCallback((zone: GaugeZone) => {
     if (!aimTarget) return;
 
+    if (zone === 'perfect') setTimeout(playCorrect, 60);
+    if (zone === 'miss')    setTimeout(playWrong,   60);
+
     const [ar, ac] = calcLandingCell(aimTarget.row, aimTarget.col, zone, markedRef.current);
-    setStoppedZone(zone);
 
-    // Sound feedback by zone
-    if (zone === 'perfect') setTimeout(playCorrect, 80);
-    if (zone === 'miss')    setTimeout(playWrong,   80);
-
-    // Brief pause to show feedback, then launch
+    // Brief pause so the freeze badge is visible, then launch the ball
     setTimeout(() => {
       const cellEl   = cellRefs.current[ar][ac];
       const launchEl = launcherRef.current;
@@ -393,25 +360,24 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
       const cRect = cellEl.getBoundingClientRect();
       const lRect = launchEl.getBoundingClientRect();
 
-      const id    = ++ballIdRef.current;
-      const fromX = lRect.left + lRect.width  / 2;
-      const fromY = lRect.top  + lRect.height / 2;
-      const toX   = cRect.left + cRect.width  / 2;
-      const toY   = cRect.top  + cRect.height / 2;
-
       throwTargetRef.current = [ar, ac];
-      setFlyingBall({ id, fromX, fromY, toX, toY });
+      setFlyingBall({
+        id:    ++ballIdRef.current,
+        fromX: lRect.left + lRect.width  / 2,
+        fromY: lRect.top  + lRect.height / 2,
+        toX:   cRect.left + cRect.width  / 2,
+        toY:   cRect.top  + cRect.height / 2,
+      });
       setPhase('play');
       setAimTarget(null);
-      setStoppedZone(null);
+      setRingPos(null);
       playToss();
 
-      // ── Ball lands ─────────────────────────────────────────────────────────
+      // Ball lands
       setTimeout(() => {
         const [r, c] = throwTargetRef.current!;
         const newMarked     = markedRef.current.map(row => [...row]);
         newMarked[r][c]     = true;
-
         const { cells: newCells, count: newCount } = checkTossLines(newMarked);
         const newBallsLeft  = ballsLeftRef.current - 1;
         const gotNewBingo   = newCount > lineCountRef.current;
@@ -433,10 +399,10 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
           setTimeout(() => setPhase('result'), 700);
         }
       }, 520);
-    }, 480); // feedback display duration before throw
+    }, 440);
   }, [aimTarget, grid]);
 
-  // ── Reset ────────────────────────────────────────────────────────────────────
+  // ── Reset ─────────────────────────────────────────────────────────────────────
 
   function handleReset() {
     setGrid(generateTossGrid());
@@ -449,10 +415,10 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
     setPhase('play');
     setScore(0);
     setAimTarget(null);
-    setStoppedZone(null);
+    setRingPos(null);
   }
 
-  // ── Render ───────────────────────────────────────────────────────────────────
+  // ── Render ────────────────────────────────────────────────────────────────────
 
   return (
     <div className="flex flex-col items-center gap-4 py-5 animate-[fade-in_0.3s_ease_both]">
@@ -470,7 +436,6 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
           <h2 className="text-lg font-black text-gray-700">たまなげビンゴ</h2>
           <p className="text-xs text-gray-400 font-bold">{playerName} ⚾</p>
         </div>
-        {/* Live score */}
         <div className="text-right">
           <p className="text-xs text-gray-400 font-bold">スコア</p>
           <p
@@ -485,12 +450,11 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
 
       {/* Instruction */}
       <p className="text-sm font-bold text-gray-500 text-center px-4 min-h-[1.25rem]">
-        {phase === 'play' && ballsLeft > 0 && !flyingBall && (
-          'ねらうマスを タップしよう！'
-        )}
+        {phase === 'play' && !flyingBall && ballsLeft > 0 && 'ねらうマスを タップしよう！'}
         {phase === 'aiming' && aimTarget && (
           <span>
-            マス <span className="font-black text-blue-600">{grid[aimTarget.row][aimTarget.col]}</span> をねらってる！
+            マス <span className="font-black text-blue-600">{grid[aimTarget.row][aimTarget.col]}</span>
+            {' '}— 輪が ちいさいとき タップ！⚾
           </span>
         )}
         {lineCount > 0 && phase === 'play' && !flyingBall && (
@@ -508,8 +472,6 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
             background: 'linear-gradient(160deg, #3B1A08, #6B2D0D)',
             border: '3px solid #2D1206',
             boxShadow: '0 8px 28px rgba(59,26,8,0.5)',
-            opacity: phase === 'aiming' ? 0.85 : 1,
-            transition: 'opacity 0.2s',
           }}
         >
           <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(5, 1fr)' }}>
@@ -536,7 +498,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
         </div>
       </div>
 
-      {/* Remaining balls (launcher origin — always mounted) */}
+      {/* Balls (launcher origin — always mounted for BoundingClientRect) */}
       <div className="flex flex-col items-center gap-2">
         <div
           ref={launcherRef}
@@ -558,15 +520,41 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
         </p>
       </div>
 
-      {/* Gauge (shown only during aiming phase) */}
-      {phase === 'aiming' && (
-        <GaugeOverlay
-          stoppedZone={stoppedZone}
-          onStop={handleGaugeStop}
+      {/* Speed selector */}
+      {phase !== 'result' && (
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-bold text-gray-400">スピード</span>
+          {(['slow', 'normal', 'fast'] as RingSpeed[]).map((s) => (
+            <button
+              key={s}
+              onClick={() => setRingSpeed(s)}
+              className="px-3 py-1 rounded-full text-xs font-black transition-all active:scale-90"
+              style={{
+                background: ringSpeed === s
+                  ? 'linear-gradient(135deg, #667eea, #764ba2)'
+                  : 'rgba(0,0,0,0.06)',
+                color: ringSpeed === s ? 'white' : '#9ca3af',
+                border: `2px solid ${ringSpeed === s ? 'transparent' : 'rgba(0,0,0,0.08)'}`,
+              }}
+            >
+              {s === 'slow' ? '🐢 おそい' : s === 'normal' ? '🐇 ふつう' : '⚡ はやい'}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Ring overlay — shown over everything while aiming */}
+      {phase === 'aiming' && ringPos && (
+        <RingOverlay
+          cx={ringPos.cx}
+          cy={ringPos.cy}
+          maxR={ringPos.maxR}
+          speed={RING_SPEEDS[ringSpeed]}
+          onStop={handleRingStop}
         />
       )}
 
-      {/* Flying ball overlay */}
+      {/* Flying ball */}
       {flyingBall && (
         <div
           key={flyingBall.id}
@@ -580,7 +568,7 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
             lineHeight: 1,
             ['--dx' as string]: `${flyingBall.toX - flyingBall.fromX}px`,
             ['--dy' as string]: `${flyingBall.toY - flyingBall.fromY}px`,
-            animation: 'ball-toss 0.52s cubic-bezier(0.4, 0.0, 0.55, 1) forwards',
+            animation: 'ball-toss 0.52s cubic-bezier(0.4,0.0,0.55,1) forwards',
           }}
         >
           ⚾
@@ -618,13 +606,11 @@ export default function TossGameScreen({ playerName, onHome }: Props) {
                 </p>
               </>
             ) : (
-              <>
-                <div className="text-center">
-                  <p className="text-5xl">😢</p>
-                  <p className="text-base font-black text-gray-500 mt-2">ビンゴ ならなかった…</p>
-                  <p className="text-sm text-gray-400 mt-1">もう一度 チャレンジしよう！</p>
-                </div>
-              </>
+              <div className="text-center">
+                <p className="text-5xl">😢</p>
+                <p className="text-base font-black text-gray-500 mt-2">ビンゴ ならなかった…</p>
+                <p className="text-sm text-gray-400 mt-1">もう一度 チャレンジしよう！</p>
+              </div>
             )}
 
             <div className="flex gap-3 w-full">
