@@ -28,20 +28,22 @@ interface PickResult {
 function GuuSimple({ size = 80 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
-      {/* knuckle bumps */}
-      <rect x="16" y="16" width="11" height="18" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      <rect x="30" y="12" width="11" height="20" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      <rect x="44" y="14" width="11" height="19" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      <rect x="57" y="18" width="9"  height="16" rx="4.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      {/* fist body */}
-      <rect x="12" y="28" width="56" height="36" rx="14" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      {/* knuckle lines */}
-      <rect x="16" y="28" width="11" height="8" rx="4" fill="#FCD34D" />
-      <rect x="30" y="28" width="11" height="8" rx="4" fill="#FCD34D" />
-      <rect x="44" y="28" width="11" height="8" rx="4" fill="#FCD34D" />
-      <rect x="57" y="28" width="9"  height="8" rx="4" fill="#FCD34D" />
-      {/* thumb */}
-      <rect x="6"  y="34" width="14" height="16" rx="7" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      {/* thumb on left */}
+      <rect x="5" y="36" width="15" height="20" rx="7.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
+      {/* fist body — dominant shape */}
+      <rect x="12" y="26" width="58" height="40" rx="16" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
+      {/* 4 small knuckle bumps — short & wide = clearly closed fingers */}
+      <rect x="14" y="20" width="13" height="11" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
+      <rect x="29" y="16" width="13" height="13" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
+      <rect x="44" y="18" width="13" height="12" rx="5.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
+      <rect x="57" y="22" width="11" height="10" rx="5"   fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
+      {/* knuckle highlight row */}
+      <rect x="14" y="26" width="13" height="9" rx="4.5" fill="#FCD34D" />
+      <rect x="29" y="26" width="13" height="9" rx="4.5" fill="#FCD34D" />
+      <rect x="44" y="26" width="13" height="9" rx="4.5" fill="#FCD34D" />
+      <rect x="57" y="26" width="11" height="9" rx="4.5" fill="#FCD34D" />
+      {/* horizontal crease = fingers folded in */}
+      <line x1="14" y1="48" x2="68" y2="48" stroke="rgba(0,0,0,0.10)" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
@@ -64,20 +66,22 @@ function ChokiSimple({ size = 80 }: { size?: number }) {
 }
 
 function PaaSimple({ size = 80 }: { size?: number }) {
+  // Fingers fan outward — each rotated around its base at the palm top (y≈50)
+  // rotate(deg baseCx baseCy)
   return (
     <svg width={size} height={size} viewBox="0 0 80 80" fill="none" style={{ display: 'block' }}>
-      {/* palm */}
-      <rect x="14" y="50" width="52" height="24" rx="12" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      {/* pinky */}
-      <rect x="8"  y="22" width="13" height="36" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      {/* pinky — rotated left */}
+      <rect x="9"  y="8" width="13" height="42" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" transform="rotate(-16 15.5 50)" />
       {/* ring */}
-      <rect x="24" y="14" width="13" height="42" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      {/* middle */}
-      <rect x="39" y="10" width="13" height="46" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      <rect x="23" y="5" width="13" height="45" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" transform="rotate(-6 29.5 50)" />
+      {/* middle — straight up */}
+      <rect x="33" y="3" width="13" height="47" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
       {/* index */}
-      <rect x="54" y="16" width="13" height="40" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
-      {/* thumb */}
-      <rect x="6"  y="50" width="14" height="14" rx="7"   fill="#FEF3C7" stroke="rgba(0,0,0,0.18)" strokeWidth="1.5" />
+      <rect x="43" y="5" width="13" height="45" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" transform="rotate(6 49.5 50)" />
+      {/* thumb — shorter, rotated right */}
+      <rect x="57" y="28" width="13" height="28" rx="6.5" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" transform="rotate(22 63.5 56)" />
+      {/* palm — drawn last to cover finger bases */}
+      <ellipse cx="40" cy="62" rx="28" ry="16" fill="#FEF3C7" stroke="rgba(0,0,0,0.22)" strokeWidth="2" />
     </svg>
   );
 }
