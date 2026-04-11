@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { getTopEntries, RANK_MODE_META } from '@/lib/ranking';
+import { getTopEntries, refreshRankingsFromServer, RANK_MODE_META } from '@/lib/ranking';
 import type { RankGameMode, RankPeriod, RankEntry } from '@/lib/ranking';
 
 interface Props {
@@ -34,6 +34,8 @@ export default function RankingScreen({ onHome }: Props) {
 
   useEffect(() => {
     setEntries(getTopEntries(mode, period));
+    refreshRankingsFromServer(mode, period)
+      .then(() => setEntries(getTopEntries(mode, period)));
   }, [mode, period]);
 
   const meta = RANK_MODE_META[mode];
