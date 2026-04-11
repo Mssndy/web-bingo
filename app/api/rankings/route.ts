@@ -15,7 +15,8 @@ export async function GET(req: NextRequest) {
   const raw = await redis.zrange(`ranking:${mode}`, '+inf', cutoff, {
     byScore: true,
     rev: true,
-    limit: { offset: 0, count: limit },
+    offset: 0,
+    count: limit,
     withScores: true,
   });
 
