@@ -110,48 +110,53 @@ function SquareCell({
       {/* 内側グラデーション */}
       <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg,rgba(255,255,255,0.12) 0%,transparent 60%)' }} />
 
-      {/* 道路センターライン */}
+      {/* 道路センターライン（普通マスのみ） */}
       {isNormal && (
         <div
           className="absolute"
           style={
             square.dir !== '↑'
-              ? { top: '50%', left: '10%', right: '10%', height: '1px', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.20)', borderRadius: '1px' }
-              : { left: '50%', top: '10%', bottom: '10%', width: '1px', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.20)', borderRadius: '1px' }
+              ? { top: '50%', left: '5%', right: '5%', height: '1px', transform: 'translateY(-50%)', background: 'rgba(255,255,255,0.15)', borderRadius: '1px' }
+              : { left: '50%', top: '5%', bottom: '5%', width: '1px', transform: 'translateX(-50%)', background: 'rgba(255,255,255,0.15)', borderRadius: '1px' }
           }
         />
       )}
 
-      {/* マス番号 */}
-      <span
-        className="absolute font-black z-10 leading-none"
-        style={{
-          top: '2px', left: '2px',
-          fontSize: 'clamp(6px, 1.6vw, 9px)',
-          color: isNormal ? 'rgba(255,255,255,0.35)' : 'rgba(255,255,255,0.9)',
-        }}
-      >
-        {square.id === 0 ? 'S' : square.id === BOARD_SIZE - 1 ? 'G' : square.id}
-      </span>
-
-      {/* 普通マスの方向矢印 */}
+      {/* 普通マス: 数字を中央に大きく */}
       {isNormal && (
-        <span className="relative z-10 leading-none" style={{ fontSize: 'clamp(7px, 1.8vw, 11px)', color: 'rgba(255,255,255,0.22)' }}>
-          {square.dir}
+        <span
+          className="relative z-10 font-black leading-none"
+          style={{
+            fontSize: 'clamp(11px, 3vw, 18px)',
+            color: 'rgba(255,255,255,0.85)',
+            textShadow: '0 1px 3px rgba(0,0,0,0.6)',
+          }}
+        >
+          {square.id}
         </span>
       )}
 
-      {/* 特殊マス絵文字 */}
-      {!isNormal && style.emoji && (
-        <span
-          className="relative z-10 leading-none"
-          style={{
-            fontSize: 'clamp(12px, 3.2vw, 20px)',
-            filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
-          }}
-        >
-          {style.emoji}
-        </span>
+      {/* 特殊マス: 小さい番号（左上）+ 絵文字（中央大） */}
+      {!isNormal && (
+        <>
+          <span
+            className="absolute font-black z-10 leading-none"
+            style={{ top: '2px', left: '2px', fontSize: 'clamp(7px, 1.8vw, 10px)', color: 'rgba(255,255,255,0.85)' }}
+          >
+            {square.id === 0 ? 'S' : square.id === BOARD_SIZE - 1 ? 'G' : square.id}
+          </span>
+          {style.emoji && (
+          <span
+            className="relative z-10 leading-none"
+            style={{
+              fontSize: 'clamp(14px, 3.6vw, 22px)',
+              filter: 'drop-shadow(0 1px 3px rgba(0,0,0,0.5))',
+            }}
+          >
+            {style.emoji}
+          </span>
+          )}
+        </>
       )}
 
       {/* CPU トークン（小さい丸、左上） */}
@@ -634,8 +639,8 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
         {(phase === 'roll' || phase === 'rolling') && (
           <div className="flex items-center gap-3">
             <div
-              className="text-5xl select-none shrink-0"
-              style={{ animation: phase === 'rolling' ? 'dice-spin 0.9s ease-out both' : undefined, filter: 'drop-shadow(0 3px 6px rgba(0,0,0,0.4))' }}
+              className="text-8xl select-none shrink-0"
+              style={{ animation: phase === 'rolling' ? 'dice-spin 0.9s ease-out both' : undefined, filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}
             >
               {DICE_FACES[displayDice]}
             </div>
@@ -661,7 +666,7 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
         {/* ===== 移動中 ===== */}
         {phase === 'moving' && diceValue !== null && (
           <div className="flex items-center justify-center gap-3">
-            <span className="text-5xl">{DICE_FACES[diceValue]}</span>
+            <span className="text-8xl">{DICE_FACES[diceValue]}</span>
             <div>
               <p className="text-xl font-black text-white">{diceValue}マス すすむ！</p>
               <div className="flex gap-1 mt-1">
@@ -738,7 +743,7 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
             </div>
             {diceValue !== null && (
               <div className="flex items-center gap-1.5">
-                <span className="text-4xl">{DICE_FACES[diceValue]}</span>
+                <span className="text-7xl">{DICE_FACES[diceValue]}</span>
                 <span className="text-xl font-black text-white">{diceValue}</span>
               </div>
             )}
