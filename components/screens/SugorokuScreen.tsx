@@ -1,6 +1,43 @@
 'use client';
 
 import { useState, useEffect, useRef, useCallback } from 'react';
+
+// ── 白いサイコロ SVG ──────────────────────────────────────────────────────────
+
+const DICE_DOT_POSITIONS: Record<number, [number, number][]> = {
+  1: [[50, 50]],
+  2: [[28, 28], [72, 72]],
+  3: [[28, 28], [50, 50], [72, 72]],
+  4: [[28, 28], [72, 28], [28, 72], [72, 72]],
+  5: [[28, 28], [72, 28], [50, 50], [28, 72], [72, 72]],
+  6: [[28, 22], [72, 22], [28, 50], [72, 50], [28, 78], [72, 78]],
+};
+
+function DiceFace({ value, size = 96, spinning = false }: { value: number; size?: number; spinning?: boolean }) {
+  const dots = DICE_DOT_POSITIONS[value] ?? DICE_DOT_POSITIONS[1];
+  return (
+    <svg
+      width={size} height={size} viewBox="0 0 100 100"
+      style={{
+        display: 'block',
+        filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.5))',
+        animation: spinning ? 'dice-spin 0.9s ease-out both' : undefined,
+        flexShrink: 0,
+      }}
+    >
+      {/* 本体 */}
+      <rect x="4" y="4" width="92" height="92" rx="18" fill="white" />
+      {/* 角のハイライト */}
+      <rect x="4" y="4" width="92" height="46" rx="18" fill="rgba(255,255,255,0.6)" />
+      {/* 枠線 */}
+      <rect x="4" y="4" width="92" height="92" rx="18" fill="none" stroke="rgba(0,0,0,0.12)" strokeWidth="2" />
+      {/* ドット */}
+      {dots.map(([cx, cy], i) => (
+        <circle key={i} cx={cx} cy={cy} r="8" fill="#1e293b" />
+      ))}
+    </svg>
+  );
+}
 import type { JankenResult } from '@/lib/janken';
 import {
   BOARD, BOARD_SIZE, createPlayers, rollDice, clampPosition, getSquare, pickMiniGame,
@@ -501,7 +538,6 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
     return <JankenGameScreen playerName={playerName} onHome={onHome} onSugorokuComplete={handleJankenComplete} />;
   }
 
-  const DICE_FACES    = ['', '⚀', '⚁', '⚂', '⚃', '⚄', '⚅'];
   const displayDice   = phase === 'rolling' ? rollingNum : (diceValue ?? 1);
   const currentPlayer = players[currentIdx];
 
@@ -639,10 +675,9 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
         {(phase === 'roll' || phase === 'rolling') && (
           <div className="flex items-center gap-3">
             <div
-              className="text-8xl select-none shrink-0"
-              style={{ animation: phase === 'rolling' ? 'dice-spin 0.9s ease-out both' : undefined, filter: 'drop-shadow(0 4px 10px rgba(0,0,0,0.5))' }}
+              className="select-none shrink-0"
             >
-              {DICE_FACES[displayDice]}
+              <DiceFace value={displayDice} size={110} spinning={phase === 'rolling'} />
             </div>
             <div className="flex-1">
               <p className="text-xs font-black text-white/70 mb-1">
@@ -666,7 +701,7 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
         {/* ===== 移動中 ===== */}
         {phase === 'moving' && diceValue !== null && (
           <div className="flex items-center justify-center gap-3">
-            <span className="text-8xl">{DICE_FACES[diceValue]}</span>
+            <DiceFace value={diceValue} size={110} />
             <div>
               <p className="text-xl font-black text-white">{diceValue}マス すすむ！</p>
               <div className="flex gap-1 mt-1">
@@ -743,7 +778,7 @@ export default function SugorokuScreen({ playerName, onHome }: Props) {
             </div>
             {diceValue !== null && (
               <div className="flex items-center gap-1.5">
-                <span className="text-7xl">{DICE_FACES[diceValue]}</span>
+                <DiceFace value={diceValue} size={90} />
                 <span className="text-xl font-black text-white">{diceValue}</span>
               </div>
             )}
