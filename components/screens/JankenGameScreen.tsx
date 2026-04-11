@@ -12,6 +12,8 @@ import { saveRankEntry } from '@/lib/ranking';
 interface Props {
   playerName: string;
   onHome: () => void;
+  /** すごろくモード: 1回勝負の結果を親に返す */
+  onSugorokuComplete?: (result: JankenResult) => void;
 }
 
 type Phase = 'ready' | 'countdown' | 'pick' | 'battle' | 'reveal';
@@ -346,7 +348,7 @@ function HandCard({
 
 // ── Main Screen ────────────────────────────────────────────────────────────
 
-export default function JankenGameScreen({ playerName, onHome }: Props) {
+export default function JankenGameScreen({ playerName, onHome, onSugorokuComplete }: Props) {
   const [phase, setPhase]           = useState<Phase>('ready');
   const [beat, setBeat]             = useState<0 | 1 | 2 | 3>(0);
   const [pickResult, setPickResult] = useState<PickResult | null>(null);
@@ -401,6 +403,13 @@ export default function JankenGameScreen({ playerName, onHome }: Props) {
     const t = setTimeout(() => setShowFlash(false), 2600);
     return () => clearTimeout(t);
   }, [showFlash]);
+
+  // すごろくモード: revealフェーズに入って3.5秒後に結果を親へ返す
+  useEffect(() => {
+    if (phase !== 'reveal' || !onSugorokuComplete || !pickResult) return;
+    const t = setTimeout(() => onSugorokuComplete(pickResult.result), 3500);
+    return () => clearTimeout(t);
+  }, [phase, onSugorokuComplete, pickResult]);
 
   const handleAgain = useCallback(() => {
     setBeat(0);

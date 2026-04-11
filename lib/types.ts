@@ -8,7 +8,8 @@ export type AppScreen =
   | 'char-practice-settings' | 'char-practice'
   | 'minigame-plaza' | 'janken' | 'toss'
   | 'ranking'
-  | 'session-complete';
+  | 'session-complete'
+  | 'sugoroku';
 
 // ── Character mode types ──────────────────────────────────────────────────────
 

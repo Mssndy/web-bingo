@@ -288,3 +288,130 @@ export function playGaugeStop(): void {
   tone(ac, 1400, t + 0.01, 0.10, 'sine', 0.14);
   tone(ac, 700,  t + 0.01, 0.08, 'sine', 0.08);
 }
+
+// ── すごろく ──────────────────────────────────────────────────────────────────
+
+/** サイコロを振る: カラカラ→ストップ */
+export function playDiceRoll(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  // カラカラ感：ノイズバーストを複数
+  for (let i = 0; i < 5; i++) {
+    snap(ac, t + i * 0.07, 0.04, 0.14 - i * 0.02);
+    tone(ac, 320 + i * 40, t + i * 0.07, 0.04, 'square', 0.07);
+  }
+  // 止まる「コトン」
+  kick(ac, t + 0.40, 0.28);
+  tone(ac, 440, t + 0.40, 0.09, 'triangle', 0.18);
+}
+
+/** コマがマスに止まる: ポコッ */
+export function playTokenStep(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  tone(ac, 520, t, 0.06, 'triangle', 0.16);
+  tone(ac, 260, t, 0.05, 'sine',     0.10);
+}
+
+/** ラッキーマス: きらきら上昇 */
+export function playLucky(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.05, 0.18);
+  tone(ac, 523,  t + 0.00, 0.09, 'triangle', 0.24);
+  tone(ac, 659,  t + 0.07, 0.09, 'triangle', 0.24);
+  tone(ac, 784,  t + 0.14, 0.09, 'triangle', 0.24);
+  tone(ac, 1047, t + 0.21, 0.36, 'triangle', 0.28);
+  tone(ac, 1319, t + 0.21, 0.30, 'sine',     0.14);
+  tone(ac, 2093, t + 0.32, 0.18, 'sine',     0.09);
+}
+
+/** バッドマス: ずずんと落下 */
+export function playBadSquare(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  sweep(ac, 350, 160, t,        0.20, 'triangle', 0.24);
+  sweep(ac, 280, 120, t + 0.22, 0.24, 'sine',     0.16);
+  tone(ac, 110, t + 0.40, 0.18, 'sine', 0.12);
+}
+
+/** ミニゲーム開始ファンファーレ */
+export function playMiniGameStart(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.50);
+  snap(ac, t, 0.07, 0.20);
+  tone(ac, 392,  t + 0.00, 0.09, 'triangle', 0.26);
+  tone(ac, 523,  t + 0.08, 0.09, 'triangle', 0.26);
+  tone(ac, 659,  t + 0.16, 0.09, 'triangle', 0.26);
+  tone(ac, 784,  t + 0.24, 0.42, 'triangle', 0.30);
+  tone(ac, 988,  t + 0.24, 0.36, 'sine',     0.14);
+}
+
+/** トランプ カードをひく */
+export function playCardFlip(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  sweep(ac, 800, 1400, t, 0.08, 'sawtooth', 0.14);
+  snap(ac, t + 0.06, 0.04, 0.12);
+  tone(ac, 660, t + 0.08, 0.12, 'triangle', 0.16);
+}
+
+/** トランプ 勝ち */
+export function playTrumpWin(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.40);
+  snap(ac, t, 0.05, 0.18);
+  tone(ac, 523,  t + 0.02, 0.09, 'triangle', 0.22);
+  tone(ac, 659,  t + 0.09, 0.09, 'triangle', 0.22);
+  tone(ac, 784,  t + 0.16, 0.36, 'triangle', 0.26);
+  tone(ac, 1047, t + 0.16, 0.30, 'sine',     0.13);
+}
+
+/** トランプ 負け（穏やか） */
+export function playTrumpLose(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  sweep(ac, 440, 330, t,        0.18, 'triangle', 0.22);
+  sweep(ac, 330, 220, t + 0.22, 0.22, 'sine',     0.14);
+}
+
+/** トランプ あいこ */
+export function playTrumpDraw(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.04, 0.10);
+  tone(ac, 494, t,        0.09, 'triangle', 0.20);
+  tone(ac, 494, t + 0.16, 0.09, 'triangle', 0.14);
+  tone(ac, 523, t + 0.30, 0.12, 'triangle', 0.18);
+}
+
+/** ゴール到着: 豪華ファンファーレ */
+export function playGoalReached(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  kick(ac, t, 0.60);
+  snap(ac, t, 0.09, 0.26);
+  // アルペジオ
+  const notes = [523, 659, 784, 1047, 1319, 1568];
+  notes.forEach((f, i) => tone(ac, f, t + 0.03 + i * 0.08, 0.18, 'triangle', 0.24));
+  // 和音
+  tone(ac, 1047, t + 0.52, 0.60, 'triangle', 0.22);
+  tone(ac, 1319, t + 0.52, 0.54, 'sine',     0.14);
+  tone(ac, 1568, t + 0.52, 0.48, 'sine',     0.10);
+  // スパークル
+  snap(ac, t + 0.50, 0.12, 0.16);
+  tone(ac, 2093, t + 0.60, 0.20, 'sine', 0.08);
+  tone(ac, 2637, t + 0.66, 0.16, 'sine', 0.06);
+}

@@ -10,6 +10,7 @@ interface Props {
   onEasy: (name: string) => void;
   onChar: (name: string) => void;
   onMiniGame: (name: string) => void;
+  onSugoroku: (name: string) => void;
   onRanking: () => void;
   stats: PlayerStats | null;
   stickerCount: number;
@@ -26,7 +27,7 @@ interface ModeCard {
   onSelect: (name: string) => void;
 }
 
-export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, onRanking, stats, stickerCount }: Props) {
+export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, onMiniGame, onSugoroku, onRanking, stats, stickerCount }: Props) {
   const [name, setName] = useState(stats?.name ?? 'かず');
 
   const trimmed = name.trim();
@@ -81,6 +82,16 @@ export default function NameEntryScreen({ onStart, onPractice, onEasy, onChar, o
       border: 'rgba(102,126,234,0.5)',
       anim: 'float-bob-3 4s ease-in-out infinite 3.2s',
       onSelect: onMiniGame,
+    },
+    {
+      id: 'sugoroku',
+      emoji: '🎲',
+      label: 'すごろく',
+      desc: 'さいころをふって\nゴールをめざせ！',
+      gradient: 'linear-gradient(135deg, #f03e3e 0%, #ff922b 100%)',
+      border: 'rgba(240,62,62,0.5)',
+      anim: 'float-bob-1 4s ease-in-out infinite 4.0s',
+      onSelect: onSugoroku,
     },
   ];
 

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react';
 import type { AppScreen, GameSettings, GameState, PlayerStats, PracticeSettings, EasySettings, CharGameSettings, CharPracticeSettings } from '@/lib/types';
-import { loadStatsForPlayer, saveStats, createEmptyStats, getStickerCount, addSticker } from '@/lib/storage';
+import { loadStatsForPlayer, saveStats, createEmptyStats, getStickerCount, addSticker, syncRecordsFromServer } from '@/lib/storage';
 import {
   createInitialGameState,
   drawNextNumber,
@@ -31,6 +31,7 @@ import TossGameScreen from '@/components/screens/TossGameScreen';
 import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
 import RankingScreen from '@/components/screens/RankingScreen';
 import SessionCompleteScreen from '@/components/screens/SessionCompleteScreen';
+import SugorokuScreen from '@/components/screens/SugorokuScreen';
 import {
   generateCharBingoCard,
   createInitialCharGameState,
@@ -139,6 +140,7 @@ export default function BingoApp() {
   function handleStart(name: string) {
     setPlayerName(name);
     setStats(loadStatsForPlayer(name));
+    syncRecordsFromServer(name).catch(() => {});
     setScreen('settings');
   }
 
@@ -289,6 +291,12 @@ export default function BingoApp() {
     setScreen('minigame-plaza');
   }
 
+  function handleGoToSugoroku(name: string) {
+    setPlayerName(name);
+    setStats(loadStatsForPlayer(name));
+    setScreen('sugoroku');
+  }
+
   function handleStartCharGame() {
     const chars = getCharSet(charSettings.contentType);
     const card = charSettings.cardMode === 'web' ? generateCharBingoCard(chars) : null;
@@ -341,6 +349,7 @@ export default function BingoApp() {
           onEasy={handleGoToEasy}
           onChar={handleGoToChar}
           onMiniGame={handleGoToMiniGamePlaza}
+          onSugoroku={handleGoToSugoroku}
           onRanking={() => setScreen('ranking')}
           stats={stats}
           stickerCount={stickerCount}
@@ -470,6 +479,12 @@ export default function BingoApp() {
       )}
       {screen === 'ranking' && (
         <RankingScreen onHome={() => setScreen('name-entry')} />
+      )}
+      {screen === 'sugoroku' && (
+        <SugorokuScreen
+          playerName={playerName}
+          onHome={handleBackToName}
+        />
       )}
       {screen === 'session-complete' && sessionResult && (
         <SessionCompleteScreen
