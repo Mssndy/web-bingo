@@ -3,37 +3,54 @@
 export type SquareType = 'start' | 'normal' | 'lucky' | 'bad' | 'minigame' | 'goal';
 export type MiniGameType = 'janken' | 'trump';
 
+export const BOARD_SIZE = 100; // 0〜99
+
 export interface SugorokuSquare {
   id: number;
   type: SquareType;
-  row: number; // 0=top, 3=bottom
-  col: number; // 0-4
+  row: number;  // CSS grid row (1=top, 10=bottom)
+  col: number;  // CSS grid column (1=left, 10=right)
+  dir: '→' | '←' | '↑'; // 進む方向
 }
 
 /**
- * 20マス蛇行ボード (4行×5列)
+ * 10×10蛇行ボード
  *
- * Row 0 (top):    19 18 17 16 15   ←
- * Row 1:          10 11 12 13 14   →
- * Row 2:           9  8  7  6  5   ←
- * Row 3 (bottom):  0  1  2  3  4   →  START=0
+ * row=1 (top): 99←90
+ * row=2:       80→89
+ * ...
+ * row=9:       10←19
+ * row=10 (bot): 0→9   START=0, GOAL=99
  */
-function squarePos(id: number): { row: number; col: number } {
-  if (id <= 4)  return { row: 3, col: id };
-  if (id <= 9)  return { row: 2, col: 9 - id };
-  if (id <= 14) return { row: 1, col: id - 10 };
-  return { row: 0, col: 19 - id };
+function squarePos(id: number): { row: number; col: number; dir: '→' | '←' | '↑' } {
+  const rowFromBottom = Math.floor(id / 10); // 0=bottom, 9=top
+  const colInRow = id % 10;
+  const isLTR = rowFromBottom % 2 === 0;     // 偶数段=左から右
+  const col = (isLTR ? colInRow : 9 - colInRow) + 1; // 1-indexed
+  const row = 10 - rowFromBottom;            // 1-indexed (1=top)
+
+  let dir: '→' | '←' | '↑';
+  if (id >= BOARD_SIZE - 1) {
+    dir = isLTR ? '→' : '←';
+  } else if (isLTR && colInRow === 9) {
+    dir = '↑'; // 右端: 上へ折り返す
+  } else if (!isLTR && colInRow === 0) {
+    dir = '↑'; // 左端: 上へ折り返す
+  } else {
+    dir = isLTR ? '→' : '←';
+  }
+  return { row, col, dir };
 }
 
-export const BOARD: SugorokuSquare[] = Array.from({ length: 20 }, (_, id) => {
-  const { row, col } = squarePos(id);
+export const BOARD: SugorokuSquare[] = Array.from({ length: BOARD_SIZE }, (_, id) => {
+  const { row, col, dir } = squarePos(id);
   let type: SquareType = 'normal';
-  if (id === 0)                           type = 'start';
-  else if (id === 19)                     type = 'goal';
-  else if ([3, 8, 13, 17].includes(id))  type = 'lucky';
-  else if ([5, 11].includes(id))         type = 'bad';
-  else if ([4, 9, 14].includes(id))      type = 'minigame';
-  return { id, type, row, col };
+  if (id === 0)                   type = 'start';
+  else if (id === BOARD_SIZE - 1) type = 'goal';
+  else if ([7, 22, 37, 52, 67, 82].includes(id))   type = 'lucky';
+  else if ([14, 33, 56, 77].includes(id))           type = 'bad';
+  else if ([10, 29, 48, 69, 88].includes(id))       type = 'minigame';
+  return { id, type, row, col, dir };
 });
 
 // ── プレイヤー ────────────────────────────────────────────────────────────────
@@ -57,22 +74,10 @@ export interface SugorokuPlayer {
 
 export function createPlayers(humanName: string): SugorokuPlayer[] {
   return [
-    {
-      id: 0, name: humanName, color: HUMAN_COLOR, emoji: HUMAN_EMOJI,
-      position: 0, isHuman: true, isFinished: false, rank: null,
-    },
-    {
-      id: 1, name: CPU_NAMES[0], color: CPU_COLORS[0], emoji: CPU_EMOJIS[0],
-      position: 0, isHuman: false, isFinished: false, rank: null,
-    },
-    {
-      id: 2, name: CPU_NAMES[1], color: CPU_COLORS[1], emoji: CPU_EMOJIS[1],
-      position: 0, isHuman: false, isFinished: false, rank: null,
-    },
-    {
-      id: 3, name: CPU_NAMES[2], color: CPU_COLORS[2], emoji: CPU_EMOJIS[2],
-      position: 0, isHuman: false, isFinished: false, rank: null,
-    },
+    { id: 0, name: humanName,    color: HUMAN_COLOR,    emoji: HUMAN_EMOJI,    position: 0, isHuman: true,  isFinished: false, rank: null },
+    { id: 1, name: CPU_NAMES[0], color: CPU_COLORS[0],  emoji: CPU_EMOJIS[0],  position: 0, isHuman: false, isFinished: false, rank: null },
+    { id: 2, name: CPU_NAMES[1], color: CPU_COLORS[1],  emoji: CPU_EMOJIS[1],  position: 0, isHuman: false, isFinished: false, rank: null },
+    { id: 3, name: CPU_NAMES[2], color: CPU_COLORS[2],  emoji: CPU_EMOJIS[2],  position: 0, isHuman: false, isFinished: false, rank: null },
   ];
 }
 
@@ -85,7 +90,7 @@ export function rollDice(): number {
 // ── 移動 ──────────────────────────────────────────────────────────────────────
 
 export function clampPosition(pos: number): number {
-  return Math.max(0, Math.min(19, pos));
+  return Math.max(0, Math.min(BOARD_SIZE - 1, pos));
 }
 
 export function getSquare(position: number): SugorokuSquare {
@@ -119,29 +124,26 @@ export function trumpCardSuit(): string {
 
 // ── マス色 & テキスト ─────────────────────────────────────────────────────────
 
-export const SQUARE_STYLE: Record<SquareType, { bg: string; border: string; label: string; emoji: string }> = {
-  start:    { bg: 'linear-gradient(135deg,#ffd93d,#ff922b)', border: '#ff922b', label: 'スタート', emoji: '🏁' },
-  normal:   { bg: 'linear-gradient(135deg,#4d96ff,#228be6)', border: '#4d96ff', label: '',         emoji: '' },
-  lucky:    { bg: 'linear-gradient(135deg,#ffd93d,#fcc419)', border: '#fcc419', label: 'ラッキー', emoji: '⭐' },
-  bad:      { bg: 'linear-gradient(135deg,#cc5de8,#9c36b5)', border: '#cc5de8', label: 'バッド',   emoji: '💨' },
-  minigame: { bg: 'linear-gradient(135deg,#ff6b9d,#f03e3e)', border: '#ff6b9d', label: 'ゲーム',   emoji: '🎮' },
-  goal:     { bg: 'linear-gradient(135deg,#6bcb77,#2f9e44)', border: '#6bcb77', label: 'ゴール！', emoji: '🏆' },
+export const SQUARE_STYLE: Record<SquareType, { bg: string; border: string; emoji: string }> = {
+  start:    { bg: 'linear-gradient(135deg,#ffd93d,#ff922b)', border: '#ff922b', emoji: '🚦' },
+  normal:   { bg: '#1e293b',                                 border: '#334155', emoji: '' },
+  lucky:    { bg: 'linear-gradient(135deg,#ffd93d,#fcc419)', border: '#fcc419', emoji: '⭐' },
+  bad:      { bg: 'linear-gradient(135deg,#cc5de8,#9c36b5)', border: '#cc5de8', emoji: '💨' },
+  minigame: { bg: 'linear-gradient(135deg,#ff6b9d,#f03e3e)', border: '#ff6b9d', emoji: '🎮' },
+  goal:     { bg: 'linear-gradient(135deg,#6bcb77,#2f9e44)', border: '#6bcb77', emoji: '🏆' },
 };
-
-// ── マス効果テキスト ──────────────────────────────────────────────────────────
 
 export function getSquareEventText(type: SquareType): string {
   switch (type) {
-    case 'lucky':    return '⭐ラッキー！3マスすすむ！';
-    case 'bad':      return '💨あっ！3マスもどる！';
+    case 'lucky':    return '⭐ラッキー！5マスすすむ！';
+    case 'bad':      return '💨あっ！5マスもどる！';
     case 'minigame': return '🎮ミニゲーム スタート！';
     case 'goal':     return '🏆ゴール！！！';
     default:         return '';
   }
 }
 
-// ── ミニゲーム結果のボーナス移動 ─────────────────────────────────────────────
-
-export const MINIGAME_WIN_BONUS  = 3;
-export const MINIGAME_DRAW_BONUS = 1;
-// 負けはボーナスなし（子供が傷つかない設計）
+export const MINIGAME_WIN_BONUS  = 5;
+export const MINIGAME_DRAW_BONUS = 2;
+export const LUCKY_BONUS = 5;
+export const BAD_PENALTY = 5;
