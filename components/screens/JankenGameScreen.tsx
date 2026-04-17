@@ -312,7 +312,7 @@ function HandCard({
   const cardAnim = (() => {
     if (battleStep === 'enter')     return 'janken-object-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both';
     if (battleStep === 'shake')     return 'janken-battle-shake 0.6s ease-in-out 3';
-    if (battleStep === 'transform') return 'janken-hand-transform 0.55s cubic-bezier(0.34,1.56,0.64,1) both';
+    if (battleStep === 'transform') return 'janken-hand-transform 0.9s cubic-bezier(0.34,1.56,0.64,1) both';
     return undefined;
   })();
 
@@ -330,54 +330,100 @@ function HandCard({
   return (
     <div className="flex flex-col items-center gap-1.5">
       <p className="text-xs font-black text-gray-400 tracking-wide">{label}</p>
-      <div
-        className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
-        style={{
-          background: showRevealedBg || committed
-            ? HAND_BG[hand]
-            : 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)',
-          border: '3px solid rgba(255,255,255,0.3)',
-          animation: cardAnim,
-        }}
-      >
-        {/* カードの中身を重ねて、transform中に手→オブジェクトへ差し替える */}
-        <div style={{ position: 'relative', width: 76, height: 76 }}>
-          {/* 未コミット: ？ */}
-          {!committed && !showRevealedBg && (
-            <div style={{ position: 'absolute', inset: 0 }}>
-              <NeutralSimple size={76} />
-            </div>
-          )}
-          {/* コミット済み: 手の画像 (transform中にフェードアウト) */}
-          {committed && !isDone && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                animation: isTransforming
-                  ? 'janken-swap-out 0.55s linear forwards'
-                  : undefined,
-              }}
-            >
-              <HandComp size={76} />
-            </div>
-          )}
-          {/* オブジェクト画像 (transform中にフェードイン、done後は常時表示) */}
-          {committed && (isTransforming || isDone) && (
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                opacity: isDone ? 1 : 0,
-                animation: isTransforming
-                  ? 'janken-swap-in 0.55s linear forwards'
-                  : undefined,
-              }}
-            >
-              <ObjComp size={76} />
-            </div>
-          )}
+      <div className="relative" style={{ width: 108, height: 108, perspective: '800px' }}>
+        {/* 回転するカード本体 */}
+        <div
+          className="absolute inset-0 rounded-3xl flex items-center justify-center shadow-xl"
+          style={{
+            background: showRevealedBg || committed
+              ? HAND_BG[hand]
+              : 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)',
+            border: '3px solid rgba(255,255,255,0.3)',
+            animation: cardAnim,
+            backfaceVisibility: 'hidden',
+          }}
+        >
+          <div style={{ position: 'relative', width: 76, height: 76 }}>
+            {/* 未コミット: ？ */}
+            {!committed && !showRevealedBg && (
+              <div style={{ position: 'absolute', inset: 0 }}>
+                <NeutralSimple size={76} />
+              </div>
+            )}
+            {/* コミット済み: 手の画像 (フリップの中央50%で非表示に) */}
+            {committed && !isDone && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  animation: isTransforming
+                    ? 'janken-swap-out 0.9s linear forwards'
+                    : undefined,
+                }}
+              >
+                <HandComp size={76} />
+              </div>
+            )}
+            {/* オブジェクト画像 (フリップ後半で現れる、done後は常時表示) */}
+            {committed && (isTransforming || isDone) && (
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: 0,
+                  opacity: isDone ? 1 : 0,
+                  animation: isTransforming
+                    ? 'janken-swap-in 0.9s linear forwards'
+                    : undefined,
+                }}
+              >
+                <ObjComp size={76} />
+              </div>
+            )}
+          </div>
         </div>
+        {/* 変身演出: 回転しない位置で白＋金の閃光と飛び散る星 */}
+        {isTransforming && (
+          <>
+            <div
+              style={{
+                position: 'absolute',
+                inset: '-25%',
+                borderRadius: '50%',
+                pointerEvents: 'none',
+                background: 'radial-gradient(circle, rgba(255,255,255,0.95) 0%, rgba(253,224,71,0.78) 30%, rgba(253,186,116,0.35) 55%, transparent 72%)',
+                animation: 'janken-transform-burst 0.9s ease-out forwards',
+                mixBlendMode: 'screen',
+              }}
+            />
+            {[0, 72, 144, 216, 288].map((deg, i) => {
+              const rad = (deg * Math.PI) / 180;
+              return (
+                <div
+                  key={i}
+                  style={{
+                    position: 'absolute',
+                    top: 'calc(50% - 11px)',
+                    left: 'calc(50% - 11px)',
+                    width: 22,
+                    height: 22,
+                    fontSize: 20,
+                    lineHeight: '22px',
+                    textAlign: 'center',
+                    pointerEvents: 'none',
+                    // @ts-expect-error custom CSS properties for radial sparkle paths
+                    '--dx1': `${Math.cos(rad) * 48}px`,
+                    '--dy1': `${Math.sin(rad) * 48}px`,
+                    '--dx2': `${Math.cos(rad) * 90}px`,
+                    '--dy2': `${Math.sin(rad) * 90}px`,
+                    animation: `janken-transform-spark 0.9s ease-out ${0.015 * i}s forwards`,
+                  }}
+                >
+                  ✨
+                </div>
+              );
+            })}
+          </>
+        )}
       </div>
       {showRevealedBg && (
         <p
@@ -426,7 +472,7 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
     setBattleStep('enter');
     const t1 = setTimeout(() => setBattleStep('shake'),     400);
     const t2 = setTimeout(() => setBattleStep('transform'), 2200);
-    const t3 = setTimeout(() => setBattleStep('done'),      2800);
+    const t3 = setTimeout(() => setBattleStep('done'),      3100);
     const t4 = setTimeout(() => {
       if (pickResult.result === 'draw')      playJankenDraw();
       else if (mode === 'friend')            playJankenWin();
@@ -434,7 +480,7 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
       else                                   playJankenLose();
       setPhase('reveal');
       setShowFlash(true);
-    }, 3000);
+    }, 3300);
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
   }, [phase, pickResult, mode]);
 
