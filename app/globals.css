@@ -167,6 +167,16 @@
   100% { transform: scale(1)   rotate(0deg); }
 }
 
+/* 変身中の手→オブジェクト差し替え (カードが一番縮む35%で瞬時に入れ替わるので見えない) */
+@keyframes janken-swap-out {
+  0%, 34%   { opacity: 1; }
+  35%, 100% { opacity: 0; }
+}
+@keyframes janken-swap-in {
+  0%, 34%   { opacity: 0; }
+  35%, 100% { opacity: 1; }
+}
+
 /* ぽん！の超大テキスト入場 */
 @keyframes janken-pon-burst {
   0%   { transform: scale(0.3)  rotate(-8deg); opacity: 0; }

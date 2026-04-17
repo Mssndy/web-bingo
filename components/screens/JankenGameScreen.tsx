@@ -16,7 +16,8 @@ interface Props {
   onSugorokuComplete?: (result: JankenResult) => void;
 }
 
-type Phase = 'ready' | 'countdown' | 'pick' | 'battle' | 'reveal';
+type Mode = 'cpu' | 'friend';
+type Phase = 'ready' | 'countdown' | 'pick' | 'handoff' | 'battle' | 'reveal';
 type BattleStep = 'enter' | 'shake' | 'transform' | 'done';
 
 interface PickResult {
@@ -300,13 +301,14 @@ function HandCard({
   hand,
   label,
   battleStep,
+  committed,
 }: {
   hand: JankenHand;
   label: string;
   battleStep: BattleStep;
+  /** この手の持ち主がすでに選んだか。CPUの奇襲演出用にfalseなら「？」で隠す。 */
+  committed: boolean;
 }) {
-  const revealed = battleStep === 'transform' || battleStep === 'done';
-
   const cardAnim = (() => {
     if (battleStep === 'enter')     return 'janken-object-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both';
     if (battleStep === 'shake')     return 'janken-battle-shake 0.6s ease-in-out 3';
@@ -314,7 +316,16 @@ function HandCard({
     return undefined;
   })();
 
-  const ObjComp = OBJECT_COMP[hand];
+  const ObjComp  = OBJECT_COMP[hand];
+  const HandComp = SIMPLE_HAND[hand];
+
+  // Phase booleans:
+  //  ・isTransforming/isDone: この手の種類 (石/はさみ/紙) を見せる段階
+  //  ・committed: 手の画像 (ぐー/ちょき/ぱー) を見せる段階
+  //  ・それ以外は？(まだ選んでいない or CPU隠し)
+  const isTransforming = battleStep === 'transform';
+  const isDone         = battleStep === 'done';
+  const showRevealedBg = isTransforming || isDone;
 
   return (
     <div className="flex flex-col items-center gap-1.5">
@@ -322,19 +333,53 @@ function HandCard({
       <div
         className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
         style={{
-          background: revealed
+          background: showRevealedBg || committed
             ? HAND_BG[hand]
             : 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)',
           border: '3px solid rgba(255,255,255,0.3)',
           animation: cardAnim,
         }}
       >
-        {revealed
-          ? <ObjComp size={76} />
-          : <NeutralSimple size={76} />
-        }
+        {/* カードの中身を重ねて、transform中に手→オブジェクトへ差し替える */}
+        <div style={{ position: 'relative', width: 76, height: 76 }}>
+          {/* 未コミット: ？ */}
+          {!committed && !showRevealedBg && (
+            <div style={{ position: 'absolute', inset: 0 }}>
+              <NeutralSimple size={76} />
+            </div>
+          )}
+          {/* コミット済み: 手の画像 (transform中にフェードアウト) */}
+          {committed && !isDone && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                animation: isTransforming
+                  ? 'janken-swap-out 0.55s linear forwards'
+                  : undefined,
+              }}
+            >
+              <HandComp size={76} />
+            </div>
+          )}
+          {/* オブジェクト画像 (transform中にフェードイン、done後は常時表示) */}
+          {committed && (isTransforming || isDone) && (
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                opacity: isDone ? 1 : 0,
+                animation: isTransforming
+                  ? 'janken-swap-in 0.55s linear forwards'
+                  : undefined,
+              }}
+            >
+              <ObjComp size={76} />
+            </div>
+          )}
+        </div>
       </div>
-      {revealed && (
+      {showRevealedBg && (
         <p
           className="text-sm font-black text-gray-600"
           style={{ animation: 'janken-explanation 0.3s ease 0.3s both', opacity: 0 }}
@@ -356,6 +401,15 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
   const [score, setScore]           = useState({ win: 0, lose: 0, draw: 0 });
   const [showFlash, setShowFlash]   = useState(false);
 
+  // Mode (vs CPU or vs ともだち). すごろくモードではCPU固定。
+  const sugorokuMode = !!onSugorokuComplete;
+  const [mode, setMode] = useState<Mode>('cpu');
+  const [player2Name, setPlayer2Name] = useState('ともだち');
+  const [currentPicker, setCurrentPicker] = useState<'p1' | 'p2'>('p1');
+  const [p1Hand, setP1Hand] = useState<JankenHand | null>(null);
+
+  const opponentName = mode === 'friend' ? player2Name : 'CPU';
+
   // Countdown beats
   useEffect(() => {
     if (phase !== 'countdown') return;
@@ -374,27 +428,49 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
     const t2 = setTimeout(() => setBattleStep('transform'), 2200);
     const t3 = setTimeout(() => setBattleStep('done'),      2800);
     const t4 = setTimeout(() => {
-      if (pickResult.result === 'win')       playJankenWin();
-      else if (pickResult.result === 'lose') playJankenLose();
-      else                                   playJankenDraw();
+      if (pickResult.result === 'draw')      playJankenDraw();
+      else if (mode === 'friend')            playJankenWin();
+      else if (pickResult.result === 'win')  playJankenWin();
+      else                                   playJankenLose();
       setPhase('reveal');
       setShowFlash(true);
     }, 3000);
     return () => [t1, t2, t3, t4].forEach(clearTimeout);
-  }, [phase, pickResult]);
+  }, [phase, pickResult, mode]);
 
   const commitPick = useCallback((hand: JankenHand) => {
-    const cpuHand = getRandomHand();
-    const result  = judgeJanken(hand, cpuHand);
-    setPickResult({ playerHand: hand, cpuHand, result });
-    setScore(s => ({ ...s, [result]: s[result] + 1 }));
-    setPhase('battle');
-  }, []);
+    if (mode === 'cpu') {
+      const cpuHand = getRandomHand();
+      const result  = judgeJanken(hand, cpuHand);
+      setPickResult({ playerHand: hand, cpuHand, result });
+      setScore(s => ({ ...s, [result]: s[result] + 1 }));
+      setPhase('battle');
+      return;
+    }
+    // vs ともだち: 1人目→handoff→2人目→battle
+    if (currentPicker === 'p1') {
+      setP1Hand(hand);
+      setCurrentPicker('p2');
+      setPhase('handoff');
+    } else {
+      const p1 = p1Hand!;
+      const result = judgeJanken(p1, hand);
+      setPickResult({ playerHand: p1, cpuHand: hand, result });
+      setScore(s => ({ ...s, [result]: s[result] + 1 }));
+      setPhase('battle');
+    }
+  }, [mode, currentPicker, p1Hand]);
 
   const handleStartCountdown = useCallback(() => {
     setBeat(0);
     setPickResult(null);
+    setP1Hand(null);
+    setCurrentPicker('p1');
     setPhase('countdown');
+  }, []);
+
+  const handleHandoffNext = useCallback(() => {
+    setPhase('pick');
   }, []);
 
   // Auto-clear flash after animation completes
@@ -416,6 +492,8 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
     setPickResult(null);
     setBattleStep('enter');
     setShowFlash(false);
+    setP1Hand(null);
+    setCurrentPicker('p1');
     setPhase('ready');
   }, []);
 
@@ -461,9 +539,9 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
         style={{ background: 'white', border: '2px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
       >
         {[
-          { key: 'win',  label: 'かち',  color: 'var(--color-bingo-green)'  },
-          { key: 'lose', label: 'まけ',  color: 'var(--color-bingo-orange)' },
-          { key: 'draw', label: 'あいこ', color: 'var(--color-bingo-blue)'  },
+          { key: 'win',  label: mode === 'friend' ? `${playerName}` : 'かち',  color: 'var(--color-bingo-green)'  },
+          { key: 'draw', label: 'あいこ',                                       color: 'var(--color-bingo-blue)'  },
+          { key: 'lose', label: mode === 'friend' ? `${player2Name}` : 'まけ', color: 'var(--color-bingo-orange)' },
         ].map(({ key, label, color }, i) => (
           <div key={key} className="flex items-center gap-3">
             {i > 0 && <div className="text-gray-200 text-2xl">|</div>}
@@ -479,7 +557,52 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
 
       {/* ── READY ── */}
       {phase === 'ready' && (
-        <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
+        <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
+
+          {/* Mode toggle (すごろくモードでは非表示) */}
+          {!sugorokuMode && (
+            <div
+              className="flex gap-2 p-1.5 rounded-full"
+              style={{ background: 'white', border: '2px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+            >
+              {(['cpu', 'friend'] as Mode[]).map((m) => {
+                const active = mode === m;
+                const label = m === 'cpu' ? '🤖 CPUとたたかう' : '👥 ともだちとあそぶ';
+                return (
+                  <button
+                    key={m}
+                    onClick={() => setMode(m)}
+                    className="px-4 py-2 rounded-full text-xs font-black transition-all active:scale-95"
+                    style={{
+                      background: active ? 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)' : 'transparent',
+                      color: active ? 'white' : '#94a3b8',
+                      boxShadow: active ? '0 2px 6px rgba(102,126,234,0.35)' : undefined,
+                    }}
+                  >
+                    {label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* Name input for Player 2 */}
+          {mode === 'friend' && !sugorokuMode && (
+            <label className="flex items-center gap-2 text-sm font-bold text-gray-500">
+              <span>👥</span>
+              <input
+                type="text"
+                value={player2Name}
+                onChange={(e) => setPlayer2Name(e.target.value.slice(0, 8) || 'ともだち')}
+                maxLength={8}
+                className="px-3 py-2 rounded-full text-center font-black text-gray-700 outline-none w-32"
+                style={{ background: 'white', border: '2px solid rgba(0,0,0,0.08)' }}
+                aria-label="ともだちの名前"
+              />
+              <span>のなまえ</span>
+            </label>
+          )}
+
           <div className="flex items-end justify-center gap-10">
             <div className="flex flex-col items-center gap-1">
               <p className="text-xs font-black text-gray-400">{playerName}</p>
@@ -492,7 +615,7 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
             </div>
             <div className="text-4xl font-black text-gray-200 pb-4">VS</div>
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black text-gray-400">CPU</p>
+              <p className="text-xs font-black text-gray-400">{opponentName}</p>
               <div
                 className="w-[90px] h-[90px] rounded-2xl flex items-center justify-center"
                 style={{ background: 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)' }}
@@ -514,7 +637,9 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
           </button>
 
           <p className="text-xs text-gray-400 font-bold text-center">
-            「ぽん！」のあとに てを えらんでね！
+            {mode === 'friend'
+              ? '「ぽん！」のあと、ひとりずつ てを えらんでね！'
+              : '「ぽん！」のあとに てを えらんでね！'}
           </p>
         </div>
       )}
@@ -537,7 +662,7 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
             </div>
             <div className="text-4xl font-black text-gray-200 pb-4">VS</div>
             <div className="flex flex-col items-center gap-1">
-              <p className="text-xs font-black text-gray-400">CPU</p>
+              <p className="text-xs font-black text-gray-400">{opponentName}</p>
               <div
                 className="w-[90px] h-[90px] rounded-2xl flex items-center justify-center"
                 style={{
@@ -589,6 +714,19 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
       {/* ── PICK ── */}
       {phase === 'pick' && (
         <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.15s_ease_both]">
+          {mode === 'friend' && (
+            <p
+              className="text-base font-black text-white px-4 py-1.5 rounded-full"
+              style={{
+                background: currentPicker === 'p1'
+                  ? 'linear-gradient(135deg, #34d399 0%, #059669 100%)'
+                  : 'linear-gradient(135deg, #fb923c 0%, #c2410c 100%)',
+                animation: 'janken-banner 0.35s cubic-bezier(0.34,1.56,0.64,1) both',
+              }}
+            >
+              {currentPicker === 'p1' ? playerName : player2Name} のばん！
+            </p>
+          )}
           <p
             className="text-2xl font-black text-gray-700"
             style={{ animation: 'janken-banner 0.3s cubic-bezier(0.34,1.56,0.64,1) both' }}
@@ -627,13 +765,49 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
         </div>
       )}
 
+      {/* ── HANDOFF (vs ともだち) ── */}
+      {phase === 'handoff' && (
+        <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
+          <div
+            className="w-full rounded-3xl px-6 py-5 text-center shadow-lg"
+            style={{
+              background: 'linear-gradient(135deg, #a78bfa 0%, #7c3aed 100%)',
+              animation: 'janken-banner 0.4s cubic-bezier(0.34,1.56,0.64,1) both',
+            }}
+          >
+            <p className="text-xl font-black text-white drop-shadow">
+              ✅ {playerName} えらんだよ！
+            </p>
+            <p className="text-sm font-bold text-white/90 mt-1">
+              {player2Name} に こうたいしてね！
+            </p>
+          </div>
+          <div
+            className="w-[120px] h-[120px] rounded-3xl flex items-center justify-center shadow-xl"
+            style={{ background: 'linear-gradient(145deg, #e2e8f0 0%, #94a3b8 100%)' }}
+          >
+            <span className="text-5xl">🙈</span>
+          </div>
+          <button
+            onClick={handleHandoffNext}
+            className="w-full py-4 rounded-3xl text-xl font-black text-white shadow-lg active:scale-95 transition-all"
+            style={{ background: 'linear-gradient(135deg, #fb923c 0%, #c2410c 100%)' }}
+          >
+            👉 {player2Name} のばん！
+          </button>
+          <p className="text-xs text-gray-400 font-bold text-center">
+            {playerName} は みないでね…🤫
+          </p>
+        </div>
+      )}
+
       {/* ── BATTLE ── */}
       {phase === 'battle' && pickResult && (
         <div className="flex flex-col items-center gap-6 w-full max-w-sm px-4 animate-[fade-in_0.2s_ease_both]">
           <div className="flex items-end justify-center gap-8">
-            <HandCard hand={pickResult.playerHand} label={playerName} battleStep={battleStep} />
+            <HandCard hand={pickResult.playerHand} label={playerName}    battleStep={battleStep} committed />
             <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
-            <HandCard hand={pickResult.cpuHand}    label="CPU"       battleStep={battleStep} />
+            <HandCard hand={pickResult.cpuHand}    label={opponentName}  battleStep={battleStep} committed={mode === 'friend'} />
           </div>
           {battleStep === 'shake' && (
             <p className="text-xl font-black text-gray-500 animate-pulse">…どっちが かつ？！</p>
@@ -669,9 +843,9 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
 
             <div className="text-3xl font-black text-gray-200 pb-8">VS</div>
 
-            {/* CPU */}
+            {/* Opponent (CPU or friend) */}
             <div className="flex flex-col items-center gap-1.5">
-              <p className="text-xs font-black text-gray-400">CPU</p>
+              <p className="text-xs font-black text-gray-400">{opponentName}</p>
               <div
                 className="w-[108px] h-[108px] rounded-3xl flex items-center justify-center shadow-xl"
                 style={{
@@ -755,13 +929,35 @@ export default function JankenGameScreen({ playerName, onHome, onSugorokuComplet
         <div
           className="fixed inset-0 z-50 flex flex-col items-center justify-center gap-5 pointer-events-none"
           style={{
-            background: pickResult.result === 'win'
-              ? 'radial-gradient(circle at 50% 40%, rgba(254,240,138,0.97), rgba(74,222,128,0.93))'
-              : 'radial-gradient(circle at 50% 40%, rgba(219,234,254,0.97), rgba(147,197,253,0.93))',
+            background: mode === 'friend'
+              ? 'radial-gradient(circle at 50% 40%, rgba(254,240,138,0.97), rgba(251,146,60,0.93))'
+              : pickResult.result === 'win'
+                ? 'radial-gradient(circle at 50% 40%, rgba(254,240,138,0.97), rgba(74,222,128,0.93))'
+                : 'radial-gradient(circle at 50% 40%, rgba(219,234,254,0.97), rgba(147,197,253,0.93))',
             animation: 'janken-result-flash 2.6s ease forwards',
           }}
         >
-          {pickResult.result === 'win' ? (
+          {mode === 'friend' ? (
+            <>
+              <div style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                <HappyFace size={150} />
+              </div>
+              <p
+                className="text-4xl font-black text-orange-800 drop-shadow-lg text-center"
+                style={{ animation: 'janken-banner 0.4s cubic-bezier(0.34,1.56,0.64,1) 0.2s both', opacity: 0 }}
+              >
+                🎉 {pickResult.result === 'win' ? playerName : player2Name} のかち！
+              </p>
+              <div
+                className="flex gap-3 text-4xl"
+                style={{ animation: 'fade-in 0.4s ease 0.5s both', opacity: 0 }}
+              >
+                {['✨', '⭐', '🌟', '✨', '⭐'].map((s, i) => (
+                  <span key={i} style={{ animation: `janken-star-float 1.4s ease ${0.4 + i * 0.1}s both` }}>{s}</span>
+                ))}
+              </div>
+            </>
+          ) : pickResult.result === 'win' ? (
             <>
               <div style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
                 <HappyFace size={150} />
