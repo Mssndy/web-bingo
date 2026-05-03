@@ -6,7 +6,7 @@ export type AppScreen =
   | 'easy-settings' | 'easy'
   | 'char-settings' | 'char-game'
   | 'char-practice-settings' | 'char-practice'
-  | 'minigame-plaza' | 'janken' | 'toss'
+  | 'minigame-plaza' | 'janken' | 'toss' | 'iq'
   | 'ranking'
   | 'session-complete'
   | 'sugoroku';
