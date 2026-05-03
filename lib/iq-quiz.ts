@@ -4,15 +4,25 @@
  *   - kid    : visual, age-tuned so 0〜12 year olds can play
  *   - adult  : text/number-heavy puzzles for grownups
  *
- * Difficulty buckets:
- *   - 0〜5  (kid)   → easy   : counting / odd-one-out / 2-color patterns
- *   - 6〜8  (kid)   → medium : 3-symbol patterns / number sequences / size order
- *   - 9〜12 (kid)   → hard   : longer sequences / simple logic / arithmetic
- *   - adult         → adult  : non-trivial sequences, mental math, multi-step logic
+ * Difficulty model:
+ *   1. Age (or adult mode) decides a "base" difficulty:
+ *        0〜5  → easy
+ *        6〜8  → medium
+ *        9〜12 → hard
+ *        adult → adult
+ *   2. Within that age, a SubLevel shifts the resolved difficulty up/down:
+ *        easy   →  -1 step
+ *        normal →  ±0
+ *        hard   →  +1 step
+ *      Clamped at the easy/adult ends.
  */
 
 export type IqMode = 'kid' | 'adult';
 export type IqDifficulty = 'easy' | 'medium' | 'hard' | 'adult';
+/** Per-age sub-difficulty (UI: かんたん/ふつう/むずかしい) */
+export type SubLevel = 'easy' | 'normal' | 'hard';
+export const SUB_LEVELS: readonly SubLevel[] = ['easy', 'normal', 'hard'] as const;
+export const DEFAULT_SUB_LEVEL: SubLevel = 'normal';
 
 export interface IqChoice {
   /** what to show on the choice button */
@@ -50,16 +60,36 @@ export type IqProblemKind =
 
 // ── Difficulty mapping ───────────────────────────────────────────────────────
 
-export function difficultyFor(age: number, mode: IqMode = 'kid'): IqDifficulty {
+const DIFF_LADDER: readonly IqDifficulty[] = ['easy', 'medium', 'hard', 'adult'] as const;
+
+/** Base difficulty derived purely from age + mode (no sub-level shift). */
+function baseDifficulty(age: number, mode: IqMode): IqDifficulty {
   if (mode === 'adult') return 'adult';
   if (age <= 5) return 'easy';
   if (age <= 8) return 'medium';
   return 'hard';
 }
 
-/** @deprecated use difficultyFor(age, mode) instead. Kept for older callsites. */
+/**
+ * Resolve final problem difficulty from age, mode, and the player-selected
+ * sub-level. Sub-level shifts ±1 step on the difficulty ladder, clamped at
+ * easy/adult.
+ */
+export function difficultyFor(
+  age: number,
+  mode: IqMode = 'kid',
+  sub: SubLevel = DEFAULT_SUB_LEVEL,
+): IqDifficulty {
+  const base = baseDifficulty(age, mode);
+  const baseIdx = DIFF_LADDER.indexOf(base);
+  const shift = sub === 'easy' ? -1 : sub === 'hard' ? +1 : 0;
+  const idx = Math.max(0, Math.min(DIFF_LADDER.length - 1, baseIdx + shift));
+  return DIFF_LADDER[idx];
+}
+
+/** @deprecated use difficultyFor(age, mode, sub) instead. Kept for older callsites. */
 export function difficultyForAge(age: number): IqDifficulty {
-  return difficultyFor(age, 'kid');
+  return baseDifficulty(age, 'kid');
 }
 
 /** Available session lengths — players pick one before starting. */
@@ -489,7 +519,8 @@ function buildKindMenu(diff: IqDifficulty, count: number): IqProblemKind[] {
 }
 
 /**
- * Generate a fresh quiz of `count` problems matched to the player's age & mode.
+ * Generate a fresh quiz of `count` problems matched to the player's age, mode,
+ * and selected sub-level (かんたん/ふつう/むずかしい within their age band).
  * Problems are guaranteed unique within the session (by content signature) —
  * if a generated problem collides with one already chosen, we retry up to
  * DEDUPE_MAX_TRIES, then accept the duplicate rather than loop forever.
@@ -498,8 +529,9 @@ export function generateQuiz(
   age: number,
   count: number = DEFAULT_QUIZ_LENGTH,
   mode: IqMode = 'kid',
+  sub: SubLevel = DEFAULT_SUB_LEVEL,
 ): IqProblem[] {
-  const diff = difficultyFor(age, mode);
+  const diff = difficultyFor(age, mode, sub);
   const kinds = buildKindMenu(diff, count);
   const seen = new Set<string>();
   const out: IqProblem[] = [];
@@ -539,9 +571,9 @@ const MIN_IQ = 85;
 const MAX_IQ = 160;
 
 /**
- * Compute a fun, age/mode-aware IQ score.
- * Mean target ≈ 100. Harder difficulty grants a small bonus so adults & older
- * kids tackling tougher problems can reach a higher ceiling. Always clamped to
+ * Compute a fun, age/mode/sub-level-aware IQ score.
+ * Mean target ≈ 100. Harder resolved difficulty grants a small bonus so players
+ * tackling tougher problems can reach a higher ceiling. Always clamped to
  * [MIN_IQ, MAX_IQ] so the player never sees a discouraging number.
  */
 export function calculateIQ(
@@ -549,10 +581,11 @@ export function calculateIQ(
   total: number,
   age: number,
   mode: IqMode = 'kid',
+  sub: SubLevel = DEFAULT_SUB_LEVEL,
 ): number {
   if (total === 0) return 100;
   const ratio = correct / total;
-  const diff  = difficultyFor(age, mode);
+  const diff  = difficultyFor(age, mode, sub);
   const diffBonus =
     diff === 'easy'   ? 0  :
     diff === 'medium' ? 5  :
@@ -572,9 +605,10 @@ export function scoreToResult(
   total: number,
   age: number,
   mode: IqMode = 'kid',
+  sub: SubLevel = DEFAULT_SUB_LEVEL,
 ): IqResult {
   const ratio = total === 0 ? 0 : correct / total;
-  const iq = calculateIQ(correct, total, age, mode);
+  const iq = calculateIQ(correct, total, age, mode, sub);
 
   if (mode === 'adult') {
     if (ratio >= 0.9) return { stars: 5, iq, title: '天才クラス！', message: 'メンサ級の冴え。素晴らしい！', color: 'pink',   emoji: '👑' };
