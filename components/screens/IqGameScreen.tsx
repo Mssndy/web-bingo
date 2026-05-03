@@ -4,13 +4,14 @@ import { useState, useCallback, useMemo } from 'react';
 import {
   generateQuiz,
   scoreToResult,
-  difficultyFor,
   QUIZ_LENGTH_OPTIONS,
   DEFAULT_QUIZ_LENGTH,
+  DEFAULT_SUB_LEVEL,
   type IqProblem,
   type QuizLength,
   type IqResult,
   type IqMode,
+  type SubLevel,
 } from '@/lib/iq-quiz';
 import { playCorrect, playWrong, playMiniGameStart, playNewBest } from '@/lib/sounds';
 
@@ -172,6 +173,7 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
   const [namePreset, setNamePreset] = useState<typeof NAME_PRESETS[number] | typeof OTHER>(initialNamePreset);
   const [otherName,  setOtherName]  = useState<string>(playerName ?? '');
   const [count, setCount]       = useState<QuizLength>(DEFAULT_QUIZ_LENGTH);
+  const [subLevel, setSubLevel] = useState<SubLevel>(DEFAULT_SUB_LEVEL);
   const [quiz, setQuiz]         = useState<IqProblem[]>([]);
   const [qIndex, setQIndex]     = useState(0);
   const [correctCount, setCorrect] = useState(0);
@@ -185,19 +187,19 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
 
   const current = quiz[qIndex];
   const result  = useMemo<IqResult | null>(
-    () => (phase === 'result' ? scoreToResult(correctCount, quiz.length, age, mode) : null),
-    [phase, correctCount, quiz.length, age, mode],
+    () => (phase === 'result' ? scoreToResult(correctCount, quiz.length, age, mode, subLevel) : null),
+    [phase, correctCount, quiz.length, age, mode, subLevel],
   );
 
   const handleStart = useCallback(() => {
     playMiniGameStart();
-    setQuiz(generateQuiz(age, count, mode));
+    setQuiz(generateQuiz(age, count, mode, subLevel));
     setQIndex(0);
     setCorrect(0);
     setFeedback(null);
     setSelected(null);
     setPhase('quiz');
-  }, [age, count, mode]);
+  }, [age, count, mode, subLevel]);
 
   const handleChoice = useCallback((label: string) => {
     if (feedback !== null || !current) return;
@@ -237,13 +239,13 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
 
   if (phase === 'setup') {
     const isAdult = mode === 'adult';
-    const diff = difficultyFor(age, mode);
-    const diffLabel =
-      diff === 'easy'   ? 'やさしい' :
-      diff === 'medium' ? 'ふつう'   :
-      diff === 'hard'   ? 'むずかしい' :
-      'おとなモード';
     const startDisabled = namePreset === OTHER && !otherName.trim() && !playerName;
+    // Sub-level picker config: label + bg gradient when active
+    const subOptions: { value: SubLevel; label: string; gradient: string; activeBorder: string; shadow: string }[] = [
+      { value: 'easy',   label: isAdult ? 'やさしい' : 'かんたん',   gradient: 'linear-gradient(135deg, #6bcb77 0%, #4d96ff 100%)', activeBorder: '#6bcb77', shadow: 'rgba(107,203,119,0.35)' },
+      { value: 'normal', label: 'ふつう',                             gradient: 'linear-gradient(135deg, #ffd93d 0%, #ff922b 100%)', activeBorder: '#ff922b', shadow: 'rgba(255,146,43,0.35)' },
+      { value: 'hard',   label: 'むずかしい',                         gradient: 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)', activeBorder: '#cc5de8', shadow: 'rgba(204,93,232,0.35)' },
+    ];
 
     return (
       <div className="flex flex-col gap-4 px-4 py-4 animate-[fade-in_0.3s_ease_both]">
@@ -377,23 +379,31 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           </div>
         </div>
 
-        {/* Difficulty preview chip */}
-        <div className="text-center">
-          <span
-            className="inline-block px-4 py-1.5 rounded-full text-sm font-black"
-            style={{
-              background: diff === 'easy'
-                ? 'var(--color-bingo-green)'
-                : diff === 'medium'
-                ? 'var(--color-bingo-orange)'
-                : diff === 'hard'
-                ? 'var(--color-bingo-purple)'
-                : '#1e293b',
-              color: 'white',
-            }}
-          >
-            もんだいレベル: {diffLabel}
-          </span>
+        {/* Sub-difficulty picker — within the chosen age, pick かんたん/ふつう/むずかしい */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-black text-gray-500 text-center">
+            {isAdult ? '難しさ' : 'むずかしさ'}
+          </p>
+          <div className="grid grid-cols-3 gap-2">
+            {subOptions.map((opt) => {
+              const active = subLevel === opt.value;
+              return (
+                <button
+                  key={opt.value}
+                  onClick={() => setSubLevel(opt.value)}
+                  className="rounded-2xl py-3 text-base font-black transition-all active:scale-90 shadow"
+                  style={{
+                    background: active ? opt.gradient : 'white',
+                    color: active ? 'white' : '#94a3b8',
+                    border: `3px solid ${active ? opt.activeBorder : '#e5e7eb'}`,
+                    boxShadow: active ? `0 4px 12px ${opt.shadow}` : undefined,
+                  }}
+                >
+                  {opt.label}
+                </button>
+              );
+            })}
+          </div>
         </div>
 
         {/* Question count */}
