@@ -59,37 +59,27 @@ export type IqProblemKind =
   | 'analogy';        // 類推 (A : B = C : ?)
 
 // ── Difficulty mapping ───────────────────────────────────────────────────────
+//
+// Two independent axes:
+//   1. Age (or adult mode) decides WHICH kinds of problems appear.
+//   2. SubLevel decides parameter intensity within those kinds, AND the IQ
+//      score range (cap) the player can hit.
+// They are intentionally decoupled so that e.g. a 7-year-old's むずかしい still
+// shows 7-year-old style problems — never crosses into another age band.
 
-const DIFF_LADDER: readonly IqDifficulty[] = ['easy', 'medium', 'hard', 'adult'] as const;
-
-/** Base difficulty derived purely from age + mode (no sub-level shift). */
-function baseDifficulty(age: number, mode: IqMode): IqDifficulty {
+/** Param difficulty — ONLY drives generator parameters (counts, periods, ...). */
+export function paramFor(mode: IqMode, sub: SubLevel = DEFAULT_SUB_LEVEL): IqDifficulty {
   if (mode === 'adult') return 'adult';
-  if (age <= 5) return 'easy';
-  if (age <= 8) return 'medium';
+  if (sub === 'easy')   return 'easy';
+  if (sub === 'normal') return 'medium';
   return 'hard';
 }
 
-/**
- * Resolve final problem difficulty from age, mode, and the player-selected
- * sub-level. Sub-level shifts ±1 step on the difficulty ladder, clamped at
- * easy/adult.
- */
-export function difficultyFor(
-  age: number,
-  mode: IqMode = 'kid',
-  sub: SubLevel = DEFAULT_SUB_LEVEL,
-): IqDifficulty {
-  const base = baseDifficulty(age, mode);
-  const baseIdx = DIFF_LADDER.indexOf(base);
-  const shift = sub === 'easy' ? -1 : sub === 'hard' ? +1 : 0;
-  const idx = Math.max(0, Math.min(DIFF_LADDER.length - 1, baseIdx + shift));
-  return DIFF_LADDER[idx];
-}
-
-/** @deprecated use difficultyFor(age, mode, sub) instead. Kept for older callsites. */
+/** @deprecated kept only for back-compat with older callsites. */
 export function difficultyForAge(age: number): IqDifficulty {
-  return baseDifficulty(age, 'kid');
+  if (age <= 5) return 'easy';
+  if (age <= 8) return 'medium';
+  return 'hard';
 }
 
 /** Available session lengths — players pick one before starting. */
@@ -499,19 +489,20 @@ function genByKind(kind: IqProblemKind, diff: IqDifficulty): IqProblem {
   }
 }
 
-/** Build a kind menu sized to fit `count` problems with a varied mix. */
-function buildKindMenu(diff: IqDifficulty, count: number): IqProblemKind[] {
-  const base: IqProblemKind[] =
-    diff === 'easy'
-      ? ['count', 'odd-one-out', 'pattern', 'size-order']
-      : diff === 'medium'
-      ? ['pattern', 'sequence', 'count', 'odd-one-out', 'size-order', 'logic']
-      : diff === 'hard'
-      ? ['sequence', 'pattern', 'logic', 'odd-one-out', 'size-order']
-      // adult: the harder, text-heavy kinds
-      : ['adv-sequence', 'letter-seq', 'mental-math', 'long-logic', 'analogy'];
+/**
+ * Kinds of problems for an age band. Driven only by age + mode — never by
+ * sub-level — so an age band never bleeds into another's problem types.
+ */
+function kindMenuFor(age: number, mode: IqMode): IqProblemKind[] {
+  if (mode === 'adult') return ['adv-sequence', 'letter-seq', 'mental-math', 'long-logic', 'analogy'];
+  if (age <= 5) return ['count', 'odd-one-out', 'pattern', 'size-order'];
+  if (age <= 8) return ['pattern', 'sequence', 'count', 'odd-one-out', 'size-order', 'logic'];
+  return ['sequence', 'pattern', 'logic', 'odd-one-out', 'size-order'];
+}
 
-  // Repeat the base list enough times to cover `count`, then shuffle & slice.
+/** Build a kind list sized to `count` from the age's base kind menu. */
+function buildKindList(age: number, mode: IqMode, count: number): IqProblemKind[] {
+  const base = kindMenuFor(age, mode);
   const reps = Math.ceil(count / base.length) + 1;
   const expanded: IqProblemKind[] = [];
   for (let r = 0; r < reps; r++) expanded.push(...base);
@@ -519,11 +510,10 @@ function buildKindMenu(diff: IqDifficulty, count: number): IqProblemKind[] {
 }
 
 /**
- * Generate a fresh quiz of `count` problems matched to the player's age, mode,
- * and selected sub-level (かんたん/ふつう/むずかしい within their age band).
- * Problems are guaranteed unique within the session (by content signature) —
- * if a generated problem collides with one already chosen, we retry up to
- * DEDUPE_MAX_TRIES, then accept the duplicate rather than loop forever.
+ * Generate a fresh quiz of `count` problems for the player's age, mode, and
+ * selected sub-level. Problem KINDS come from age/mode; the sub-level only
+ * adjusts parameter intensity (counts/periods/etc.) inside those kinds.
+ * Problems are deduped by content signature within the session.
  */
 export function generateQuiz(
   age: number,
@@ -531,16 +521,16 @@ export function generateQuiz(
   mode: IqMode = 'kid',
   sub: SubLevel = DEFAULT_SUB_LEVEL,
 ): IqProblem[] {
-  const diff = difficultyFor(age, mode, sub);
-  const kinds = buildKindMenu(diff, count);
+  const param = paramFor(mode, sub);
+  const kinds = buildKindList(age, mode, count);
   const seen = new Set<string>();
   const out: IqProblem[] = [];
 
   for (const kind of kinds) {
-    let problem = genByKind(kind, diff);
+    let problem = genByKind(kind, param);
     let tries = 0;
     while (seen.has(problemSignature(problem)) && tries < DEDUPE_MAX_TRIES) {
-      problem = genByKind(kind, diff);
+      problem = genByKind(kind, param);
       tries++;
     }
     seen.add(problemSignature(problem));
@@ -566,39 +556,67 @@ export interface IqResult {
   emoji: string;
 }
 
-// IQ score floor / ceiling — caps keep the result kind & believable.
-const MIN_IQ = 85;
+// Absolute display bounds. Adult floor is lower than kid floor on purpose:
+// adult scoring is stricter and 0% can drop into "below average" territory,
+// while kid scoring stays positive (keeps it kind for children).
+const MIN_IQ = 70;
 const MAX_IQ = 160;
+const KID_FLOOR = 85;
+const ADULT_FLOOR = 70;
+/**
+ * Per-sub-level IQ cap. Higher difficulty → higher possible IQ ceiling, so
+ * the score acts like a real IQ test: hitting high IQ requires solving the
+ * harder problems. Adult mode adds a small bump because the test itself is
+ * tougher than the kid version.
+ */
+const SUB_IQ_CAPS: Record<SubLevel, number> = {
+  easy:   110,  // かんたん: max ≈ "slightly above average"
+  normal: 130,  // ふつう:  max ≈ "very good"
+  hard:   160,  // むずかしい: max ≈ "exceptional"
+};
+const ADULT_CAP_BONUS = 5;
+
+export interface IqRange {
+  /** lowest possible score for the (mode, sub) combination */
+  min: number;
+  /** highest possible score for the (mode, sub) combination */
+  max: number;
+}
+
+/** Inclusive [min, max] IQ range for the given mode/sub pair. */
+export function iqRangeFor(mode: IqMode, sub: SubLevel = DEFAULT_SUB_LEVEL): IqRange {
+  const cap = Math.min(MAX_IQ, SUB_IQ_CAPS[sub] + (mode === 'adult' ? ADULT_CAP_BONUS : 0));
+  const floor = mode === 'adult' ? ADULT_FLOOR : KID_FLOOR;
+  return { min: floor, max: cap };
+}
 
 /**
- * Compute a fun, age/mode/sub-level-aware IQ score.
- * Mean target ≈ 100. Harder resolved difficulty grants a small bonus so players
- * tackling tougher problems can reach a higher ceiling. Always clamped to
- * [MIN_IQ, MAX_IQ] so the player never sees a discouraging number.
+ * Compute a sub-level-aware IQ score.
+ * Linear interpolation from the floor at 0% correct to the sub-level cap at
+ * 100%. Adult floor is lower (stricter) so a poor performance on the adult
+ * test honestly reflects in the score; kid floor stays at 85 so children are
+ * never shown a discouraging number.
  */
 export function calculateIQ(
   correct: number,
   total: number,
-  age: number,
+  // age is currently not used in scoring — kept in signature for forward-compat.
+  _age: number,
   mode: IqMode = 'kid',
   sub: SubLevel = DEFAULT_SUB_LEVEL,
 ): number {
   if (total === 0) return 100;
   const ratio = correct / total;
-  const diff  = difficultyFor(age, mode, sub);
-  const diffBonus =
-    diff === 'easy'   ? 0  :
-    diff === 'medium' ? 5  :
-    diff === 'hard'   ? 10 : 20;  // adult
-  // 0% → 75, 50% → 100, 100% → 140 (then +bonus)
-  const raw = 75 + ratio * 65 + diffBonus;
+  const { min, max } = iqRangeFor(mode, sub);
+  const raw = min + ratio * (max - min);
   return Math.max(MIN_IQ, Math.min(MAX_IQ, Math.round(raw)));
 }
 
 /**
- * Build a positive, age/mode-aware result from the score. Always supportive —
- * even with 0 correct the player sees a friendly title rather than a scolding.
- * Adult mode uses more grown-up phrasing & kanji.
+ * Build a result from the score.
+ * - Kid mode: always positive — even 0% gets a friendly title.
+ * - Adult mode: stricter — thresholds are raised and low-score messages are
+ *   honest rather than coddling, matching the "シビアに判定" stance.
  */
 export function scoreToResult(
   correct: number,
@@ -611,11 +629,13 @@ export function scoreToResult(
   const iq = calculateIQ(correct, total, age, mode, sub);
 
   if (mode === 'adult') {
-    if (ratio >= 0.9) return { stars: 5, iq, title: '天才クラス！', message: 'メンサ級の冴え。素晴らしい！', color: 'pink',   emoji: '👑' };
-    if (ratio >= 0.7) return { stars: 4, iq, title: '非常に優秀！',  message: '論理力・計算力ともにハイレベル。',   color: 'orange', emoji: '🌟' };
-    if (ratio >= 0.5) return { stars: 3, iq, title: '平均より上！',  message: 'バランス良し。次はもっと上を狙おう。', color: 'yellow', emoji: '✨' };
-    if (ratio >= 0.3) return { stars: 2, iq, title: '平均的レベル',  message: '基礎は十分。もう一度挑戦してみよう。', color: 'green',  emoji: '🌱' };
-    return                 { stars: 1, iq, title: 'ウォームアップ！', message: '次回はリラックスして挑もう。',         color: 'blue',   emoji: '☕' };
+    // Stricter thresholds: 0.95 / 0.8 / 0.6 / 0.4
+    if (ratio >= 0.95) return { stars: 5, iq, title: '天才クラス',       message: 'ほぼ完答。メンサ級の冴え。',                color: 'pink',   emoji: '👑' };
+    if (ratio >= 0.8)  return { stars: 4, iq, title: '非常に優秀',       message: '論理力・計算力ともにハイレベル。',          color: 'orange', emoji: '🌟' };
+    if (ratio >= 0.6)  return { stars: 3, iq, title: '平均より上',       message: 'バランス良好。あと一歩で上位帯。',          color: 'yellow', emoji: '✨' };
+    if (ratio >= 0.4)  return { stars: 2, iq, title: '平均的レベル',     message: '基礎は固い。むずかしいに挑戦してみよう。',  color: 'green',  emoji: '🌱' };
+    if (ratio >= 0.2)  return { stars: 1, iq, title: '伸びしろあり',     message: '苦手分野を見直すチャンス。',                color: 'blue',   emoji: '📘' };
+    return                  { stars: 1, iq, title: '要トレーニング',     message: '基礎から再挑戦を推奨。',                    color: 'blue',   emoji: '🛠️' };
   }
 
   // Kid mode (positive, ひらがな-heavy)
