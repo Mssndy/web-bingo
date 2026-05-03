@@ -28,6 +28,7 @@ import CharPracticeSettingsScreen from '@/components/screens/CharPracticeSetting
 import CharPracticeGameScreen from '@/components/screens/CharPracticeGameScreen';
 import JankenGameScreen from '@/components/screens/JankenGameScreen';
 import TossGameScreen from '@/components/screens/TossGameScreen';
+import IqGameScreen from '@/components/screens/IqGameScreen';
 import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
 import RankingScreen from '@/components/screens/RankingScreen';
 import SessionCompleteScreen from '@/components/screens/SessionCompleteScreen';
@@ -463,6 +464,7 @@ export default function BingoApp() {
           onHome={handleBackToName}
           onJanken={() => setScreen('janken')}
           onToss={() => setScreen('toss')}
+          onIq={() => setScreen('iq')}
         />
       )}
       {screen === 'janken' && (
@@ -473,6 +475,12 @@ export default function BingoApp() {
       )}
       {screen === 'toss' && (
         <TossGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
+        />
+      )}
+      {screen === 'iq' && (
+        <IqGameScreen
           playerName={playerName}
           onHome={() => setScreen('minigame-plaza')}
         />
