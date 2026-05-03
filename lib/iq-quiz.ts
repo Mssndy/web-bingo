@@ -345,21 +345,7 @@ const ADV_RULES_HARD: AdvRule[] = [
       for (let i = 0; i < 3; i++) seq.push(seq[i] * 2 + (i + 2));
       return { seq, next: seq[3] * 2 + 5 };
     } },
-  { name: 'primes',  // 連続素数
-    gen: () => {
-      const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
-      const startIdx = randomInt(0, primes.length - 6);
-      const seq = primes.slice(startIdx, startIdx + 4);
-      return { seq, next: primes[startIdx + 4] };
-    } },
-  { name: 'factorial',  // 1, 2, 6, 24, 120, 720
-    gen: () => {
-      const fact = [1, 2, 6, 24, 120, 720, 5040];
-      const startIdx = randomInt(0, 2);
-      const seq = fact.slice(startIdx, startIdx + 4);
-      return { seq, next: fact[startIdx + 4] };
-    } },
-  { name: 'product-prev',  // a, b, a*b, b*(a*b), …
+  { name: 'product-prev',  // a, b, a*b, b*(a*b), …  (insight: each term = previous two multiplied)
     gen: () => {
       const a = randomInt(2, 3), b = randomInt(2, 4);
       const c = a * b;
@@ -491,16 +477,6 @@ function genMentalMath(sub: SubLevel): IqProblem {
       const a = randomInt(21, 50);
       return { expr: `${a}²`, ans: a * a };
     },
-    () => { // percent
-      const pct = pick([10, 15, 20, 25, 30, 40, 50, 75]);
-      const base = randomInt(2, 20) * 20;  // multiples of 20
-      return { expr: `${pct}% of ${base}`, ans: Math.round(base * pct / 100) };
-    },
-    () => { // mod
-      const m = randomInt(4, 9), q = randomInt(5, 15), r = randomInt(0, m - 1);
-      const n = m * q + r;
-      return { expr: `${n} mod ${m}`, ans: r };
-    },
     () => { // 4-term mixed
       const a = randomInt(50, 99), b = randomInt(20, 50), c = randomInt(10, 40), d = randomInt(5, 25);
       return { expr: `${a} + ${b} − ${c} + ${d}`, ans: a + b - c + d };
@@ -566,86 +542,125 @@ function genLongLogic(sub: SubLevel): IqProblem {
   };
 }
 
-type AnalogyQuad = { a: string; b: string; c: string; d: string; distractors: string[] };
+// ── Symbolic transformation analogy ────────────────────────────────────────
+// Pure-insight version: shows a transformation on one symbol string and asks
+// the player to apply the SAME transformation to a fresh string. No external
+// vocabulary or factual knowledge is required — only pattern recognition.
 
-// Standard analogies — concrete, single-step relationships
-const ANALOGIES_NORMAL: AnalogyQuad[] = [
-  { a: '犬',     b: '子犬',     c: '猫',       d: '子猫',     distractors: ['ねずみ', 'うさぎ', '老猫'] },
-  { a: '日本',   b: '東京',     c: 'フランス', d: 'パリ',     distractors: ['ロンドン', 'ローマ', 'ベルリン'] },
-  { a: '本',     b: '読む',     c: '音楽',     d: '聴く',     distractors: ['見る', '書く', '走る'] },
-  { a: '医者',   b: '病院',     c: '先生',     d: '学校',     distractors: ['会社', '工場', '家'] },
-  { a: '太陽',   b: '昼',       c: '月',       d: '夜',       distractors: ['朝', '夕方', '雲'] },
-  { a: '魚',     b: '泳ぐ',     c: '鳥',       d: '飛ぶ',     distractors: ['歩く', '止まる', '鳴く'] },
-  { a: '春',     b: '桜',       c: '秋',       d: '紅葉',     distractors: ['雪', '花火', '台風'] },
-  { a: '足',     b: '靴',       c: '手',       d: '手袋',     distractors: ['帽子', 'マフラー', '指輪'] },
-  { a: '画家',   b: '絵',       c: '作家',     d: '本',       distractors: ['楽器', '映画', '道具'] },
-  { a: '熱い',   b: '冷たい',   c: '高い',     d: '低い',     distractors: ['広い', '速い', '深い'] },
-  { a: 'パン',   b: '小麦',     c: '酒',       d: '米',       distractors: ['豆', '芋', '果物'] },
-  { a: '車',     b: '道路',     c: '電車',     d: '線路',     distractors: ['空港', '港', '駅'] },
-  { a: '医師',   b: '聴診器',   c: '画家',     d: '絵筆',     distractors: ['ノート', '電卓', 'メス'] },
-  { a: '時計',   b: '時間',     c: '温度計',   d: '温度',     distractors: ['湿度', '高さ', '重さ'] },
-  { a: '雨',     b: '傘',       c: '太陽',     d: '帽子',     distractors: ['コート', '長靴', 'マフラー'] },
-  { a: '監督',   b: '映画',     c: '作曲家',   d: '音楽',     distractors: ['絵', '本', '舞台'] },
-  { a: 'パイロット', b: '飛行機', c: '船長',   d: '船',       distractors: ['電車', 'バス', '車'] },
-  { a: '蜂',     b: '蜜',       c: '牛',       d: '牛乳',     distractors: ['卵', '肉', 'チーズ'] },
-  { a: '鉛筆',   b: '書く',     c: 'はさみ',   d: '切る',     distractors: ['消す', '貼る', '結ぶ'] },
-  { a: '本',     b: '図書館',   c: '絵',       d: '美術館',   distractors: ['博物館', '映画館', '体育館'] },
-  { a: '東',     b: '西',       c: '南',       d: '北',       distractors: ['上', '下', '中央'] },
-  { a: '速い',   b: 'チーター', c: '大きい',   d: 'ゾウ',     distractors: ['キリン', 'ライオン', 'クジラ'] },
-  { a: '医者',   b: '人',       c: '獣医',     d: '動物',     distractors: ['植物', '鳥', '魚'] },
-  { a: '小説',   b: '読む',     c: '映画',     d: '観る',     distractors: ['描く', '聴く', '弾く'] },
-  { a: '日',     b: '週',       c: '月',       d: '年',       distractors: ['秒', '時', '分'] },
+type AnalogyTransform = {
+  name: string;
+  apply: (chars: string[]) => string[];
+};
+
+const ANALOGY_TRANSFORMS: AnalogyTransform[] = [
+  { name: 'reverse',
+    apply: (c) => [...c].reverse() },
+  { name: 'shift-left',
+    apply: (c) => [...c.slice(1), c[0]] },
+  { name: 'shift-right',
+    apply: (c) => [c[c.length - 1], ...c.slice(0, -1)] },
+  { name: 'swap-pairs',
+    apply: (c) => {
+      const out = [...c];
+      for (let i = 0; i + 1 < out.length; i += 2) [out[i], out[i + 1]] = [out[i + 1], out[i]];
+      return out;
+    } },
+  { name: 'each-doubled',
+    apply: (c) => c.flatMap((x) => [x, x]) },
+  { name: 'mirror',
+    apply: (c) => [...c, ...[...c].reverse()] },
+  { name: 'rotate-2',
+    apply: (c) => [...c.slice(2), ...c.slice(0, 2)] },
 ];
 
-// Easy analogies — very obvious / first-order relations
-const ANALOGIES_EASY: AnalogyQuad[] = [
-  { a: '犬',   b: '子犬', c: '猫',   d: '子猫', distractors: ['ねずみ', 'うさぎ', '魚'] },
-  { a: '本',   b: '読む', c: '音楽', d: '聴く', distractors: ['食べる', '書く', '走る'] },
-  { a: '足',   b: '靴',   c: '手',   d: '手袋', distractors: ['帽子', 'マフラー', '指輪'] },
-  { a: '太陽', b: '昼',   c: '月',   d: '夜',   distractors: ['朝', '夕方', '雲'] },
-  { a: '魚',   b: '泳ぐ', c: '鳥',   d: '飛ぶ', distractors: ['歩く', '止まる', '泣く'] },
-  { a: '日本', b: '東京', c: 'フランス', d: 'パリ', distractors: ['ロンドン', 'ローマ', 'ベルリン'] },
-  { a: '東',   b: '西',   c: '南',   d: '北',   distractors: ['上', '下', '中央'] },
+// Pairs of character sets — A→B problems use one set, C→D uses the other so
+// the player can't shortcut by recognizing characters; only the rule transfers.
+const ANALOGY_SETS: readonly (readonly string[])[] = [
+  ['○', '△', '□', '◇'],
+  ['●', '▲', '■', '◆'],
+  ['1', '2', '3', '4'],
+  ['5', '6', '7', '8'],
+  ['A', 'B', 'C', 'D'],
+  ['E', 'F', 'G', 'H'],
+  ['あ', 'い', 'う', 'え'],
+  ['か', 'き', 'く', 'け'],
+  ['☆', '♡', '♪', '♭'],
+  ['★', '♥', '♫', '♯'],
 ];
 
-// Hard analogies — abstract, function-based, multi-step, lateral
-const ANALOGIES_HARD: AnalogyQuad[] = [
-  { a: '水',     b: '氷',       c: '雲',       d: '雨',       distractors: ['雪', '霧', '虹'] },           // 状態変化
-  { a: '医者',   b: '診断',     c: '探偵',     d: '推理',     distractors: ['取調', '逮捕', '尾行'] },      // 職業×核心動詞
-  { a: '原因',   b: '結果',     c: '質問',     d: '答え',     distractors: ['議論', '対話', '反論'] },      // 抽象的対概念
-  { a: '言葉',   b: '辞書',     c: '地図',     d: '地図帳',   distractors: ['図鑑', '百科事典', 'ガイドブック'] },  // 情報×集成
-  { a: '画家',   b: '絵筆',     c: '彫刻家',   d: '鑿',       distractors: ['ハンマー', '釘', 'のこぎり'] }, // 職業×固有道具
-  { a: '幼虫',   b: '蝶',       c: 'おたまじゃくし', d: 'カエル', distractors: ['とんぼ', '魚', 'ヘビ'] },     // 変態
-  { a: '記憶',   b: '忘却',     c: '出現',     d: '消失',     distractors: ['移動', '変化', '停止'] },      // 抽象×反対動作
-  { a: '原稿',   b: '本',       c: '設計図',   d: '建物',     distractors: ['工場', '部品', '機械'] },      // 計画→完成物
-  { a: 'シェイクスピア', b: '戯曲', c: 'ベートーヴェン', d: '交響曲', distractors: ['映画', '小説', '絵画'] }, // 芸術家×作品ジャンル
-  { a: '光',     b: '影',       c: '音',       d: '残響',     distractors: ['静寂', '振動', 'こだま'] },    // 物理現象×二次効果
-  { a: '雪',     b: '冬',       c: '台風',     d: '夏',       distractors: ['春', '秋', '梅雨'] },          // 現象×季節
-  { a: '医療',   b: '病気',     c: '修理',     d: '故障',     distractors: ['設計', '製造', '販売'] },      // 行為×対応する対象
-  { a: '文字',   b: '単語',     c: '原子',     d: '分子',     distractors: ['細胞', '宇宙', '物質'] },      // 構成要素×構成物
-  { a: '楽譜',   b: '演奏',     c: '台本',     d: '上演',     distractors: ['練習', '稽古', '撮影'] },      // 設計図×実行
-  { a: '速度',   b: 'スピード計', c: '気圧',   d: '気圧計',   distractors: ['風速計', '湿度計', '体温計'] }, // 計測対象×計器
-  { a: '法律',   b: '弁護士',   c: '病気',     d: '医師',     distractors: ['看護師', '裁判官', '警察'] },  // 領域×専門家
-  { a: '羊',     b: '群れ',     c: '魚',       d: '群れ',     distractors: ['列', '巣', '帯'] },            // 集合名詞 (羊×群、魚×群でも可・群以外を選ばせない用)
-  { a: '彫刻',   b: '石',       c: '陶器',     d: '土',       distractors: ['木', '金属', 'ガラス'] },      // 完成品×素材
-];
+/** Mutate one character of `arr` to a different one (used for distractors). */
+function swapTwoChars(arr: string[]): string[] {
+  if (arr.length < 2) return arr;
+  const i = Math.floor(Math.random() * (arr.length - 1));
+  const out = [...arr];
+  [out[i], out[i + 1]] = [out[i + 1], out[i]];
+  return out;
+}
 
-/** Word analogy:  A : B = C : ?  Choose the word that matches the relationship. */
+/** Symbolic transformation analogy. Insight-only: no vocabulary required. */
 function genAnalogy(sub: SubLevel): IqProblem {
-  // hard: mostly hard-tier with some normal mixed in for variety; normal: mid; easy: easy only
-  const pool =
-    sub === 'easy'   ? ANALOGIES_EASY :
-    sub === 'normal' ? ANALOGIES_NORMAL :
-    [...ANALOGIES_NORMAL, ...ANALOGIES_HARD, ...ANALOGIES_HARD];  // weighted toward hard
-  const q = pick(pool);
-  const visual = [`${q.a} : ${q.b}`, `${q.c} : ?`];
+  // Restrict transform pool by sub-level. Easy: simple; Hard: anything goes.
+  const easyNames = new Set(['reverse', 'shift-left', 'each-doubled']);
+  const normalNames = new Set(['reverse', 'shift-left', 'shift-right', 'swap-pairs', 'each-doubled', 'mirror']);
+  const transforms =
+    sub === 'easy'   ? ANALOGY_TRANSFORMS.filter((t) => easyNames.has(t.name)) :
+    sub === 'normal' ? ANALOGY_TRANSFORMS.filter((t) => normalNames.has(t.name)) :
+                       ANALOGY_TRANSFORMS;
 
+  // Token length: easy=3, normal=3, hard=4
+  const len = sub === 'hard' ? 4 : 3;
+
+  // Try a few times to avoid degenerate problems (e.g., palindrome where
+  // reverse == identity, or transforms that collide on this input).
+  for (let attempt = 0; attempt < 8; attempt++) {
+    const T = transforms[Math.floor(Math.random() * transforms.length)];
+    // Use 2 different sets so input1 chars don't tip off input2's answer
+    const set1 = ANALOGY_SETS[Math.floor(Math.random() * ANALOGY_SETS.length)];
+    let set2 = ANALOGY_SETS[Math.floor(Math.random() * ANALOGY_SETS.length)];
+    if (set2 === set1) set2 = ANALOGY_SETS[(ANALOGY_SETS.indexOf(set1) + 1) % ANALOGY_SETS.length];
+
+    const input1 = shuffle([...set1]).slice(0, len);
+    const output1 = T.apply(input1);
+    if (input1.join('') === output1.join('')) continue;  // identity case
+
+    const input2 = shuffle([...set2]).slice(0, len);
+    const output2 = T.apply(input2);
+    if (input2.join('') === output2.join('')) continue;
+
+    const correct = output2.join(' ');
+
+    // Build same-length distractors by perturbing the correct answer.
+    const distractorPool = new Set<string>();
+    distractorPool.add(swapTwoChars(output2).join(' '));            // adjacent swap
+    distractorPool.add([...output2].reverse().join(' '));            // reversed
+    distractorPool.add(input2.join(' '));                            // raw input (no transform)
+    distractorPool.add(shuffle([...output2]).join(' '));             // random permutation
+    distractorPool.delete(correct);
+    const distractors = shuffle([...distractorPool]).slice(0, 3);
+    if (distractors.length < 3) continue;  // try again
+
+    return {
+      id: `analogy-${Date.now()}-${Math.random()}`,
+      kind: 'analogy',
+      prompt: '左の規則を見抜いて、? を答えてください',
+      visual: [
+        `${input1.join(' ')}   →   ${output1.join(' ')}`,
+        `${input2.join(' ')}   →   ?`,
+      ],
+      choices: makeChoices(correct, distractors),
+    };
+  }
+
+  // Fallback (very unlikely to hit): trivial reverse problem
+  const T = ANALOGY_TRANSFORMS[0];  // reverse
+  const input1 = ['○', '△', '□'], input2 = ['●', '▲', '■'];
+  const output1 = T.apply(input1), output2 = T.apply(input2);
   return {
-    id: `analogy-${Date.now()}-${Math.random()}`,
+    id: `analogy-fallback-${Date.now()}`,
     kind: 'analogy',
-    prompt: 'AはBに対応します。CはDに対応するとき、Dは？',
-    visual,
-    choices: makeChoices(q.d, q.distractors.slice(0, 3)),
+    prompt: '左の規則を見抜いて、? を答えてください',
+    visual: [`${input1.join(' ')}   →   ${output1.join(' ')}`, `${input2.join(' ')}   →   ?`],
+    choices: makeChoices(output2.join(' '), [input2.join(' '), '◇ ◆ ☆', '★ ♡ ♥']),
   };
 }
 
