@@ -4,12 +4,13 @@ import { useState, useCallback, useMemo } from 'react';
 import {
   generateQuiz,
   scoreToResult,
-  difficultyForAge,
+  difficultyFor,
   QUIZ_LENGTH_OPTIONS,
   DEFAULT_QUIZ_LENGTH,
   type IqProblem,
   type QuizLength,
   type IqResult,
+  type IqMode,
 } from '@/lib/iq-quiz';
 import { playCorrect, playWrong, playMiniGameStart, playNewBest } from '@/lib/sounds';
 
@@ -20,7 +21,11 @@ interface Props {
 
 type Phase = 'setup' | 'quiz' | 'result';
 
-const AGE_OPTIONS = [3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+const AGE_OPTIONS = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12] as const;
+
+// Preset name buttons. The last entry switches to a free text input.
+const NAME_PRESETS = ['かずと', 'せりか', 'はると', 'ゆいと'] as const;
+const OTHER = 'その他' as const;
 
 const COLOR_BG: Record<IqResult['color'], string> = {
   pink:   'linear-gradient(135deg, #ff6b9d 0%, #cc5de8 100%)',
@@ -39,7 +44,8 @@ function VisualBlock({ problem }: { problem: IqProblem }) {
     return null;
   }
 
-  if (problem.kind === 'logic') {
+  // Multi-line text kinds: logic, long-logic, analogy
+  if (problem.kind === 'logic' || problem.kind === 'long-logic' || problem.kind === 'analogy') {
     return (
       <div className="flex flex-col gap-2 w-full">
         {problem.visual.map((line, i) => (
@@ -54,6 +60,20 @@ function VisualBlock({ problem }: { problem: IqProblem }) {
             {line}
           </div>
         ))}
+      </div>
+    );
+  }
+
+  // Single big expression — mental math
+  if (problem.kind === 'mental-math') {
+    return (
+      <div
+        className="rounded-3xl border-4 p-6 text-center"
+        style={{ background: 'white', borderColor: 'var(--color-bingo-blue)' }}
+      >
+        <p className="text-4xl font-black text-gray-800 tracking-wider">
+          {problem.visual[0]}
+        </p>
       </div>
     );
   }
@@ -75,14 +95,14 @@ function VisualBlock({ problem }: { problem: IqProblem }) {
     );
   }
 
-  // pattern, sequence, size-order — single horizontal row
-  const isSeq = problem.kind === 'sequence';
+  // Token-row kinds: pattern, sequence, size-order, adv-sequence, letter-seq
+  const isNumeric = problem.kind === 'sequence' || problem.kind === 'adv-sequence' || problem.kind === 'letter-seq';
   return (
     <div
       className="rounded-3xl border-4 p-3 overflow-x-auto"
       style={{
         background: 'white',
-        borderColor: isSeq ? 'var(--color-bingo-blue)' : 'var(--color-bingo-purple)',
+        borderColor: isNumeric ? 'var(--color-bingo-blue)' : 'var(--color-bingo-purple)',
       }}
     >
       <div className="flex items-center justify-center gap-2 flex-wrap">
@@ -90,11 +110,11 @@ function VisualBlock({ problem }: { problem: IqProblem }) {
           <div
             key={i}
             className={
-              isSeq
+              isNumeric
                 ? 'min-w-[48px] h-[48px] rounded-xl border-2 flex items-center justify-center text-2xl font-black'
                 : 'text-4xl leading-none select-none'
             }
-            style={isSeq ? {
+            style={isNumeric ? {
               background: tok === '?' ? '#fefce8' : '#f0f9ff',
               borderColor: tok === '?' ? '#fbbf24' : '#bae6fd',
               color: '#1e293b',
@@ -143,6 +163,14 @@ function StarRow({ count, max = 5 }: { count: number; max?: number }) {
 export default function IqGameScreen({ playerName, onHome }: Props) {
   const [phase, setPhase]       = useState<Phase>('setup');
   const [age, setAge]           = useState<number>(6);
+  const [mode, setMode]         = useState<IqMode>('kid');
+  // Name selection: which preset is active (or OTHER for free text), plus
+  // the actual text used when OTHER is selected.
+  const initialNamePreset = (NAME_PRESETS as readonly string[]).includes(playerName)
+    ? (playerName as typeof NAME_PRESETS[number])
+    : OTHER;
+  const [namePreset, setNamePreset] = useState<typeof NAME_PRESETS[number] | typeof OTHER>(initialNamePreset);
+  const [otherName,  setOtherName]  = useState<string>(playerName ?? '');
   const [count, setCount]       = useState<QuizLength>(DEFAULT_QUIZ_LENGTH);
   const [quiz, setQuiz]         = useState<IqProblem[]>([]);
   const [qIndex, setQIndex]     = useState(0);
@@ -150,21 +178,26 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
 
+  // Display name resolved from current selection. Falls back to playerName, then "プレイヤー".
+  const displayName = namePreset === OTHER
+    ? (otherName.trim() || playerName || 'プレイヤー')
+    : namePreset;
+
   const current = quiz[qIndex];
   const result  = useMemo<IqResult | null>(
-    () => (phase === 'result' ? scoreToResult(correctCount, quiz.length, age) : null),
-    [phase, correctCount, quiz.length, age],
+    () => (phase === 'result' ? scoreToResult(correctCount, quiz.length, age, mode) : null),
+    [phase, correctCount, quiz.length, age, mode],
   );
 
   const handleStart = useCallback(() => {
     playMiniGameStart();
-    setQuiz(generateQuiz(age, count));
+    setQuiz(generateQuiz(age, count, mode));
     setQIndex(0);
     setCorrect(0);
     setFeedback(null);
     setSelected(null);
     setPhase('quiz');
-  }, [age, count]);
+  }, [age, count, mode]);
 
   const handleChoice = useCallback((label: string) => {
     if (feedback !== null || !current) return;
@@ -203,8 +236,15 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
   // ── Setup phase ────────────────────────────────────────────────────────
 
   if (phase === 'setup') {
-    const diff = difficultyForAge(age);
-    const diffLabel = diff === 'easy' ? 'やさしい' : diff === 'medium' ? 'ふつう' : 'むずかしい';
+    const isAdult = mode === 'adult';
+    const diff = difficultyFor(age, mode);
+    const diffLabel =
+      diff === 'easy'   ? 'やさしい' :
+      diff === 'medium' ? 'ふつう'   :
+      diff === 'hard'   ? 'むずかしい' :
+      'おとなモード';
+    const startDisabled = namePreset === OTHER && !otherName.trim() && !playerName;
+
     return (
       <div className="flex flex-col gap-4 px-4 py-4 animate-[fade-in_0.3s_ease_both]">
         <div className="flex items-center justify-between">
@@ -222,41 +262,119 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           <h2
             className="text-3xl font-black"
             style={{
-              background: 'linear-gradient(90deg, #cc5de8 0%, #ff6b9d 50%, #ff922b 100%)',
+              background: isAdult
+                ? 'linear-gradient(90deg, #1e293b 0%, #4d96ff 50%, #cc5de8 100%)'
+                : 'linear-gradient(90deg, #cc5de8 0%, #ff6b9d 50%, #ff922b 100%)',
               WebkitBackgroundClip: 'text',
               WebkitTextFillColor: 'transparent',
               backgroundClip: 'text',
             }}
           >
-            🧠 ひらめき診断
+            🧠 ひらめき診断{isAdult ? ' [大人]' : ''}
           </h2>
           <p className="text-sm text-gray-500 font-bold mt-1">
-            {playerName}、なんさい？
+            {isAdult ? `${displayName} さん、準備はいい？` : `${displayName}、なんさい？`}
           </p>
         </div>
 
-        {/* Age picker */}
-        <div className="grid grid-cols-5 gap-2">
-          {AGE_OPTIONS.map((a) => {
-            const active = a === age;
-            return (
-              <button
-                key={a}
-                onClick={() => setAge(a)}
-                className="rounded-2xl py-3 text-xl font-black transition-all active:scale-90 shadow"
-                style={{
-                  background: active
-                    ? 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)'
-                    : 'white',
-                  color: active ? 'white' : '#94a3b8',
-                  border: active ? '3px solid #ff6b9d' : '3px solid #e5e7eb',
-                  boxShadow: active ? '0 4px 12px rgba(204,93,232,0.35)' : undefined,
-                }}
-              >
-                {a}
-              </button>
-            );
-          })}
+        {/* Name picker */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-black text-gray-500 text-center">
+            {isAdult ? 'お名前' : 'なまえを えらんでね'}
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {NAME_PRESETS.map((n) => {
+              const active = namePreset === n;
+              return (
+                <button
+                  key={n}
+                  onClick={() => setNamePreset(n)}
+                  className="rounded-2xl py-3 text-sm font-black transition-all active:scale-90 shadow"
+                  style={{
+                    background: active
+                      ? 'linear-gradient(135deg, #6bcb77 0%, #4d96ff 100%)'
+                      : 'white',
+                    color: active ? 'white' : '#94a3b8',
+                    border: active ? '3px solid #4d96ff' : '3px solid #e5e7eb',
+                    boxShadow: active ? '0 4px 12px rgba(77,150,255,0.35)' : undefined,
+                  }}
+                >
+                  {n}
+                </button>
+              );
+            })}
+            <button
+              onClick={() => setNamePreset(OTHER)}
+              className="rounded-2xl py-3 text-xs font-black transition-all active:scale-90 shadow leading-tight"
+              style={{
+                background: namePreset === OTHER
+                  ? 'linear-gradient(135deg, #6bcb77 0%, #4d96ff 100%)'
+                  : 'white',
+                color: namePreset === OTHER ? 'white' : '#94a3b8',
+                border: namePreset === OTHER ? '3px solid #4d96ff' : '3px solid #e5e7eb',
+                boxShadow: namePreset === OTHER ? '0 4px 12px rgba(77,150,255,0.35)' : undefined,
+              }}
+            >
+              その他
+              <div className="text-[9px] opacity-80">(おとな含む)</div>
+            </button>
+          </div>
+          {namePreset === OTHER && (
+            <input
+              type="text"
+              value={otherName}
+              onChange={(e) => setOtherName(e.target.value.slice(0, 12))}
+              maxLength={12}
+              placeholder="なまえを にゅうりょく"
+              className="w-full px-4 py-3 rounded-2xl text-center font-black text-gray-700 outline-none"
+              style={{ background: 'white', border: '2px solid #e5e7eb' }}
+              aria-label="お名前を入力"
+            />
+          )}
+        </div>
+
+        {/* Age picker — 0..12 + おとなモード */}
+        <div className="flex flex-col gap-2">
+          <p className="text-sm font-black text-gray-500 text-center">
+            {isAdult ? 'モード' : 'なんさい？'}
+          </p>
+          <div className="grid grid-cols-5 gap-2">
+            {AGE_OPTIONS.map((a) => {
+              const active = mode === 'kid' && a === age;
+              return (
+                <button
+                  key={a}
+                  onClick={() => { setMode('kid'); setAge(a); }}
+                  className="rounded-2xl py-3 text-xl font-black transition-all active:scale-90 shadow"
+                  style={{
+                    background: active
+                      ? 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)'
+                      : 'white',
+                    color: active ? 'white' : '#94a3b8',
+                    border: active ? '3px solid #ff6b9d' : '3px solid #e5e7eb',
+                    boxShadow: active ? '0 4px 12px rgba(204,93,232,0.35)' : undefined,
+                  }}
+                >
+                  {a}
+                </button>
+              );
+            })}
+            {/* Adult mode button — spans 2 cols so it stands out */}
+            <button
+              onClick={() => setMode('adult')}
+              className="col-span-2 rounded-2xl py-3 text-sm font-black transition-all active:scale-90 shadow leading-tight"
+              style={{
+                background: isAdult
+                  ? 'linear-gradient(135deg, #1e293b 0%, #4d96ff 100%)'
+                  : 'white',
+                color: isAdult ? 'white' : '#475569',
+                border: isAdult ? '3px solid #4d96ff' : '3px solid #cbd5e1',
+                boxShadow: isAdult ? '0 4px 12px rgba(30,41,59,0.35)' : undefined,
+              }}
+            >
+              🎩 おとなモード
+            </button>
+          </div>
         </div>
 
         {/* Difficulty preview chip */}
@@ -268,7 +386,9 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
                 ? 'var(--color-bingo-green)'
                 : diff === 'medium'
                 ? 'var(--color-bingo-orange)'
-                : 'var(--color-bingo-purple)',
+                : diff === 'hard'
+                ? 'var(--color-bingo-purple)'
+                : '#1e293b',
               color: 'white',
             }}
           >
@@ -279,9 +399,9 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
         {/* Question count */}
         <div className="flex flex-col gap-2">
           <p className="text-sm font-black text-gray-500 text-center">
-            なんもん やる？
+            {isAdult ? '出題数' : 'なんもん やる？'}
           </p>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-5 gap-2">
             {QUIZ_LENGTH_OPTIONS.map((n) => {
               const active = n === count;
               return (
@@ -298,8 +418,8 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
                     boxShadow: active ? '0 4px 12px rgba(77,150,255,0.35)' : undefined,
                   }}
                 >
-                  <div className="text-2xl">{n}</div>
-                  <div className="text-[10px] opacity-80">もん</div>
+                  <div className="text-xl">{n}</div>
+                  <div className="text-[9px] opacity-80">{isAdult ? '問' : 'もん'}</div>
                 </button>
               );
             })}
@@ -308,17 +428,22 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
 
         <button
           onClick={handleStart}
-          className="w-full py-5 rounded-3xl text-2xl font-black text-white shadow-xl active:scale-95 transition-all"
+          disabled={startDisabled}
+          className="w-full py-5 rounded-3xl text-2xl font-black text-white shadow-xl active:scale-95 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
           style={{
-            background: 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)',
-            animation: 'float-bob-1 3s ease-in-out infinite',
+            background: isAdult
+              ? 'linear-gradient(135deg, #1e293b 0%, #4d96ff 100%)'
+              : 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)',
+            animation: startDisabled ? undefined : 'float-bob-1 3s ease-in-out infinite',
           }}
         >
-          ✨ スタート！
+          {isAdult ? '🚀 スタート' : '✨ スタート！'}
         </button>
 
         <p className="text-xs text-gray-400 font-bold text-center">
-          {count}もん やって、ひらめき IQ を しらべよう！
+          {isAdult
+            ? `${count}問でひらめきIQを測定します`
+            : `${count}もん やって、ひらめき IQ を しらべよう！`}
         </p>
       </div>
     );
@@ -413,12 +538,15 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
               }
             }
 
+            // Scale text down for longer labels (analogy answers can be 3+ kanji)
+            const len = [...choice.label].length;
+            const sizeClass = len <= 2 ? 'text-3xl' : len <= 4 ? 'text-2xl' : 'text-xl';
             return (
               <button
                 key={`${choice.label}-${i}`}
                 onClick={() => handleChoice(choice.label)}
                 disabled={answered}
-                className="rounded-2xl border-4 py-5 px-2 text-3xl font-black transition-all active:scale-90 shadow-sm disabled:cursor-default min-h-[80px] flex items-center justify-center"
+                className={`rounded-2xl border-4 py-5 px-2 ${sizeClass} font-black transition-all active:scale-90 shadow-sm disabled:cursor-default min-h-[80px] flex items-center justify-center text-center break-words`}
                 style={{ background: bg, borderColor: border, color: text }}
               >
                 {choice.label}
@@ -440,7 +568,9 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
               }
             >
               <p className="text-2xl font-black text-white">
-                {feedback === 'correct' ? '🎉 せいかい！' : '💪 おしい！もう一回チャレンジ！'}
+                {feedback === 'correct'
+                  ? (mode === 'adult' ? '🎉 正解！' : '🎉 せいかい！')
+                  : (mode === 'adult' ? '💡 惜しい！' : '💪 おしい！もう一回チャレンジ！')}
               </p>
             </div>
 
@@ -453,7 +583,9 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
                   : 'var(--color-bingo-blue)',
               }}
             >
-              {qIndex + 1 >= quiz.length ? '🏁 けっか を みる' : 'つぎの もんだい →'}
+              {qIndex + 1 >= quiz.length
+                ? (mode === 'adult' ? '🏁 結果を見る' : '🏁 けっか を みる')
+                : (mode === 'adult' ? '次の問題 →' : 'つぎの もんだい →')}
             </button>
           </>
         )}
@@ -513,29 +645,35 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           style={{ borderColor: 'rgba(0,0,0,0.06)' }}
         >
           <div>
-            <p className="text-xs font-black text-gray-400">なんさい</p>
-            <p className="text-xl font-black text-gray-700">{age}さい</p>
+            <p className="text-xs font-black text-gray-400">{mode === 'adult' ? 'プレイヤー' : 'なまえ'}</p>
+            <p className="text-base font-black text-gray-700 max-w-[80px] truncate">{displayName}</p>
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div>
-            <p className="text-xs font-black text-gray-400">せいかい</p>
-            <p className="text-xl font-black" style={{ color: 'var(--color-bingo-green)' }}>
-              {correctCount}/{quiz.length}
+            <p className="text-xs font-black text-gray-400">{mode === 'adult' ? 'モード' : 'なんさい'}</p>
+            <p className="text-base font-black text-gray-700">
+              {mode === 'adult' ? '🎩 大人' : `${age}さい`}
             </p>
           </div>
           <div className="w-px h-8 bg-gray-200" />
           <div>
-            <p className="text-xs font-black text-gray-400">もんだい</p>
-            <p className="text-xl font-black text-gray-700">{quiz.length}もん</p>
+            <p className="text-xs font-black text-gray-400">{mode === 'adult' ? '正解' : 'せいかい'}</p>
+            <p className="text-base font-black" style={{ color: 'var(--color-bingo-green)' }}>
+              {correctCount}/{quiz.length}
+            </p>
           </div>
         </div>
 
         <button
           onClick={handlePlayAgain}
           className="w-full py-4 rounded-3xl text-xl font-black text-white shadow-lg active:scale-95 transition-all"
-          style={{ background: 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)' }}
+          style={{
+            background: mode === 'adult'
+              ? 'linear-gradient(135deg, #1e293b 0%, #4d96ff 100%)'
+              : 'linear-gradient(135deg, #cc5de8 0%, #ff6b9d 100%)',
+          }}
         >
-          🔁 もう一回 やる！
+          🔁 {mode === 'adult' ? 'もう一度挑戦' : 'もう一回 やる！'}
         </button>
 
         <button
@@ -543,7 +681,7 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           className="w-full py-3 rounded-2xl text-base font-black text-gray-500 active:scale-95 transition-all bg-white shadow"
           style={{ border: '2px solid #e5e7eb' }}
         >
-          🏠 ホームに もどる
+          🏠 {mode === 'adult' ? 'ホームに戻る' : 'ホームに もどる'}
         </button>
       </div>
     );
