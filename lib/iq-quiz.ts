@@ -260,57 +260,120 @@ function genLogic(diff: IqDifficulty): IqProblem {
 // ── Adult-only generators ───────────────────────────────────────────────────
 
 /** Non-linear number sequences. Picks one rule at random and shows 4 terms. */
-function genAdvSequence(): IqProblem {
-  type Rule = { name: string; gen: () => { seq: number[]; next: number } };
-  const rules: Rule[] = [
-    { // ×2 + 1
-      name: '×2+1',
-      gen: () => {
-        const a = randomInt(1, 5);
-        const seq = [a];
-        for (let i = 0; i < 3; i++) seq.push(seq[i] * 2 + 1);
-        return { seq, next: seq[3] * 2 + 1 };
-      },
-    },
-    { // 平方数 n²
-      name: 'square',
-      gen: () => {
-        const start = randomInt(2, 4);
-        const seq = [start, start + 1, start + 2, start + 3].map((n) => n * n);
-        return { seq, next: (start + 4) * (start + 4) };
-      },
-    },
-    { // Fibonacci-like
-      name: 'fib',
-      gen: () => {
-        const a = randomInt(1, 4), b = randomInt(2, 5);
-        const seq = [a, b, a + b, a + 2 * b];
-        const next = 2 * a + 3 * b;
-        return { seq, next };
-      },
-    },
-    { // 差が増える: a, a+d, a+d+(d+k), …  (d=1,k=1 → +1,+2,+3,+4)
-      name: 'incdiff',
-      gen: () => {
-        const start = randomInt(1, 5);
-        const k = randomInt(1, 3);
-        const seq = [start];
-        let inc = randomInt(1, 3);
-        for (let i = 0; i < 3; i++) { seq.push(seq[i] + inc); inc += k; }
-        const next = seq[3] + inc;
-        return { seq, next };
-      },
-    },
-    { // ×3 - 1
-      name: '×3-1',
-      gen: () => {
-        const a = randomInt(1, 3);
-        const seq = [a];
-        for (let i = 0; i < 3; i++) seq.push(seq[i] * 3 - 1);
-        return { seq, next: seq[3] * 3 - 1 };
-      },
-    },
-  ];
+type AdvRule = { name: string; gen: () => { seq: number[]; next: number } };
+
+// Easier rules — straightforward arithmetic
+const ADV_RULES_EASY: AdvRule[] = [
+  { name: '+n',
+    gen: () => {
+      const start = randomInt(1, 5), step = randomInt(2, 5);
+      const seq = [start, start + step, start + 2 * step, start + 3 * step];
+      return { seq, next: start + 4 * step };
+    } },
+  { name: '×2',
+    gen: () => {
+      const start = randomInt(1, 4);
+      const seq = [start, start * 2, start * 4, start * 8];
+      return { seq, next: start * 16 };
+    } },
+];
+
+// Standard non-linear rules (current behavior)
+const ADV_RULES_NORMAL: AdvRule[] = [
+  { name: '×2+1',
+    gen: () => {
+      const a = randomInt(1, 5);
+      const seq = [a];
+      for (let i = 0; i < 3; i++) seq.push(seq[i] * 2 + 1);
+      return { seq, next: seq[3] * 2 + 1 };
+    } },
+  { name: 'square',
+    gen: () => {
+      const start = randomInt(2, 4);
+      const seq = [start, start + 1, start + 2, start + 3].map((n) => n * n);
+      return { seq, next: (start + 4) * (start + 4) };
+    } },
+  { name: 'fib',
+    gen: () => {
+      const a = randomInt(1, 4), b = randomInt(2, 5);
+      const seq = [a, b, a + b, a + 2 * b];
+      return { seq, next: 2 * a + 3 * b };
+    } },
+  { name: 'incdiff',
+    gen: () => {
+      const start = randomInt(1, 5);
+      const k = randomInt(1, 3);
+      const seq = [start];
+      let inc = randomInt(1, 3);
+      for (let i = 0; i < 3; i++) { seq.push(seq[i] + inc); inc += k; }
+      return { seq, next: seq[3] + inc };
+    } },
+  { name: '×3-1',
+    gen: () => {
+      const a = randomInt(1, 3);
+      const seq = [a];
+      for (let i = 0; i < 3; i++) seq.push(seq[i] * 3 - 1);
+      return { seq, next: seq[3] * 3 - 1 };
+    } },
+];
+
+// Genius-tier rules for adult+むずかしい
+const ADV_RULES_HARD: AdvRule[] = [
+  { name: 'tribonacci',  // a + b + c
+    gen: () => {
+      const a = randomInt(1, 3), b = randomInt(1, 4), c = randomInt(2, 5);
+      const t4 = a + b + c;
+      const t5 = b + c + t4;
+      return { seq: [a, b, c, t4], next: t5 };
+    } },
+  { name: 'square+const',  // n² + k
+    gen: () => {
+      const start = randomInt(3, 5), k = randomInt(2, 7);
+      const seq = [start, start + 1, start + 2, start + 3].map((n) => n * n + k);
+      return { seq, next: (start + 4) * (start + 4) + k };
+    } },
+  { name: 'cubic',  // n³
+    gen: () => {
+      const start = randomInt(2, 3);
+      const seq = [start, start + 1, start + 2, start + 3].map((n) => n ** 3);
+      return { seq, next: (start + 4) ** 3 };
+    } },
+  { name: 'mul-n+n',  // ×2+2, ×2+3, ×2+4 ... (each step's add increments)
+    gen: () => {
+      const a = randomInt(1, 4);
+      const seq = [a];
+      for (let i = 0; i < 3; i++) seq.push(seq[i] * 2 + (i + 2));
+      return { seq, next: seq[3] * 2 + 5 };
+    } },
+  { name: 'primes',  // 連続素数
+    gen: () => {
+      const primes = [2, 3, 5, 7, 11, 13, 17, 19, 23, 29, 31, 37, 41, 43, 47];
+      const startIdx = randomInt(0, primes.length - 6);
+      const seq = primes.slice(startIdx, startIdx + 4);
+      return { seq, next: primes[startIdx + 4] };
+    } },
+  { name: 'factorial',  // 1, 2, 6, 24, 120, 720
+    gen: () => {
+      const fact = [1, 2, 6, 24, 120, 720, 5040];
+      const startIdx = randomInt(0, 2);
+      const seq = fact.slice(startIdx, startIdx + 4);
+      return { seq, next: fact[startIdx + 4] };
+    } },
+  { name: 'product-prev',  // a, b, a*b, b*(a*b), …
+    gen: () => {
+      const a = randomInt(2, 3), b = randomInt(2, 4);
+      const c = a * b;
+      const d = b * c;
+      const e = c * d;
+      return { seq: [a, b, c, d], next: e };
+    } },
+];
+
+function genAdvSequence(sub: SubLevel): IqProblem {
+  const rules =
+    sub === 'easy'   ? ADV_RULES_EASY :
+    sub === 'normal' ? ADV_RULES_NORMAL :
+    [...ADV_RULES_NORMAL, ...ADV_RULES_HARD];  // hard mixes normal + genius rules
 
   const { seq, next } = pick(rules).gen();
   const visual = [...seq.map(String), '?'];
@@ -330,13 +393,39 @@ function genAdvSequence(): IqProblem {
 }
 
 /** Letter sequence with arithmetic step on character index. */
-function genLetterSeq(): IqProblem {
-  // Pick step size; produce a 4-letter sequence whose character codes step by `step`.
-  const step = pick([1, 2, 3, 4]);
-  const startCode = randomInt(0, 26 - step * 5);
+function genLetterSeq(sub: SubLevel): IqProblem {
+  const toLetter = (c: number) => String.fromCharCode(65 + c);
+
+  // Hard variant: alternating step pattern, e.g. +2, +3, +2, +3, … or +1, +2, +3, +4
+  if (sub === 'hard' && Math.random() < 0.5) {
+    // increasing-step: A, B, D, G, K, P  (+1, +2, +3, +4 → +5)
+    const start = randomInt(0, 5);
+    const codes = [start, start + 1, start + 1 + 2, start + 1 + 2 + 3]; // +1,+2,+3
+    const nextCode = codes[3] + 4;
+    if (nextCode < 26) {
+      const visual = [...codes.map(toLetter), '?'];
+      const answer = toLetter(nextCode);
+      const distractors = shuffle([
+        nextCode + 1, nextCode - 1, nextCode + 2, nextCode - 2,
+      ].filter((c) => c >= 0 && c < 26 && c !== nextCode)).map(toLetter);
+      return {
+        id: `letter-${Date.now()}-${Math.random()}`,
+        kind: 'letter-seq',
+        prompt: '次のアルファベットは？',
+        visual,
+        choices: makeChoices(answer, distractors.slice(0, 3)),
+      };
+    }
+  }
+
+  // Default: linear arithmetic step. easy=1-2, normal=1-4, hard=3-6
+  const stepRange =
+    sub === 'easy'   ? [1, 2] :
+    sub === 'normal' ? [1, 4] : [3, 6];
+  const step = randomInt(stepRange[0], stepRange[1]);
+  const startCode = randomInt(0, Math.max(0, 26 - step * 5));
   const codes = [0, 1, 2, 3].map((i) => startCode + step * i);
   const nextCode = startCode + step * 4;
-  const toLetter = (c: number) => String.fromCharCode(65 + c);
 
   const visual = [...codes.map(toLetter), '?'];
   const answer = toLetter(nextCode);
@@ -353,29 +442,73 @@ function genLetterSeq(): IqProblem {
   };
 }
 
-/** Mental arithmetic: 2-digit × 1-digit, or division/squaring. */
-function genMentalMath(): IqProblem {
-  type Op = { gen: () => { expr: string; ans: number } };
-  const ops: Op[] = [
-    { gen: () => { // a × b  (a∈11..19, b∈3..9)
+/** Mental arithmetic. Difficulty controls digit count and operation complexity. */
+function genMentalMath(sub: SubLevel): IqProblem {
+  type Op = () => { expr: string; ans: number };
+  const opsEasy: Op[] = [
+    () => { // single-digit ops, larger
+      const a = randomInt(7, 12), b = randomInt(3, 9);
+      return { expr: `${a} × ${b}`, ans: a * b };
+    },
+    () => { // 2-digit + 2-digit
+      const a = randomInt(20, 80), b = randomInt(15, 60);
+      return { expr: `${a} + ${b}`, ans: a + b };
+    },
+    () => { // small division
+      const b = randomInt(2, 6), q = randomInt(3, 9);
+      return { expr: `${b * q} ÷ ${b}`, ans: q };
+    },
+  ];
+  const opsNormal: Op[] = [
+    () => { // 2-digit × 1-digit
       const a = randomInt(11, 19), b = randomInt(3, 9);
       return { expr: `${a} × ${b}`, ans: a * b };
-    }},
-    { gen: () => { // a × a  (a∈12..19)
+    },
+    () => { // squaring 2-digit teen
       const a = randomInt(12, 19);
       return { expr: `${a}²`, ans: a * a };
-    }},
-    { gen: () => { // a ÷ b  (always integer)
+    },
+    () => { // integer division
       const b = randomInt(3, 12), q = randomInt(6, 15);
-      const a = b * q;
-      return { expr: `${a} ÷ ${b}`, ans: q };
-    }},
-    { gen: () => { // a + b - c
+      return { expr: `${b * q} ÷ ${b}`, ans: q };
+    },
+    () => { // a + b - c
       const a = randomInt(40, 90), b = randomInt(20, 60), c = randomInt(10, 50);
       return { expr: `${a} + ${b} - ${c}`, ans: a + b - c };
-    }},
+    },
   ];
-  const { expr, ans } = pick(ops).gen();
+  const opsHard: Op[] = [
+    ...opsNormal,
+    () => { // 3-digit × 1-digit
+      const a = randomInt(101, 199), b = randomInt(4, 9);
+      return { expr: `${a} × ${b}`, ans: a * b };
+    },
+    () => { // 2-digit × 2-digit (close to round numbers for tractability)
+      const a = randomInt(11, 49), b = randomInt(11, 29);
+      return { expr: `${a} × ${b}`, ans: a * b };
+    },
+    () => { // squaring 20-50
+      const a = randomInt(21, 50);
+      return { expr: `${a}²`, ans: a * a };
+    },
+    () => { // percent
+      const pct = pick([10, 15, 20, 25, 30, 40, 50, 75]);
+      const base = randomInt(2, 20) * 20;  // multiples of 20
+      return { expr: `${pct}% of ${base}`, ans: Math.round(base * pct / 100) };
+    },
+    () => { // mod
+      const m = randomInt(4, 9), q = randomInt(5, 15), r = randomInt(0, m - 1);
+      const n = m * q + r;
+      return { expr: `${n} mod ${m}`, ans: r };
+    },
+    () => { // 4-term mixed
+      const a = randomInt(50, 99), b = randomInt(20, 50), c = randomInt(10, 40), d = randomInt(5, 25);
+      return { expr: `${a} + ${b} − ${c} + ${d}`, ans: a + b - c + d };
+    },
+  ];
+
+  const ops = sub === 'easy' ? opsEasy : sub === 'normal' ? opsNormal : opsHard;
+  const { expr, ans } = pick(ops)();
   const distractors = shuffle([
     ans + 1, ans - 1, ans + 10, ans - 10, ans + Math.max(2, Math.round(ans * 0.1)),
   ].filter((n) => n > 0 && n !== ans));
@@ -389,66 +522,122 @@ function genMentalMath(): IqProblem {
   };
 }
 
-/** Multi-step transitive logic with 4 items: A>B, B>C, C>D ⇒ rank query. */
-function genLongLogic(): IqProblem {
-  const names = shuffle(['A', 'B', 'C', 'D']);
-  const [first, second, third, fourth] = names; // largest → smallest
-  const lines = [
-    `${first} は ${second} より大きい`,
-    `${second} は ${third} より大きい`,
-    `${third} は ${fourth} より大きい`,
-  ];
-  // Ask one of: largest / smallest / 2nd / 3rd
+/**
+ * Multi-step transitive logic. Difficulty controls chain length:
+ *   easy   → 3 items (essentially a basic syllogism)
+ *   normal → 4 items
+ *   hard   → 5 items + mixed comparison directions, harder query
+ */
+function genLongLogic(sub: SubLevel): IqProblem {
+  const itemCount = sub === 'easy' ? 3 : sub === 'normal' ? 4 : 5;
+  const allNames = ['A', 'B', 'C', 'D', 'E'];
+  const ordered = shuffle(allNames).slice(0, itemCount); // index 0 = largest
+
+  // Build the inequality chain. Hard mixes "<" lines (still equivalent ordering).
+  const lines: string[] = [];
+  for (let i = 0; i < itemCount - 1; i++) {
+    const big = ordered[i], small = ordered[i + 1];
+    if (sub === 'hard' && Math.random() < 0.5) {
+      lines.push(`${small} は ${big} より小さい`);
+    } else {
+      lines.push(`${big} は ${small} より大きい`);
+    }
+  }
+  if (sub === 'hard') shuffle(lines); // shuffle the line order to add load
+
+  // Build queries appropriate for the chain length.
   type Q = { ask: string; ans: string };
-  const queries: Q[] = [
-    { ask: '最も大きいのは？',     ans: first },
-    { ask: '最も小さいのは？',     ans: fourth },
-    { ask: '2番目に大きいのは？',  ans: second },
-    { ask: '3番目に大きいのは？',  ans: third },
-  ];
+  const queries: Q[] = [];
+  queries.push({ ask: '最も大きいのは？', ans: ordered[0] });
+  queries.push({ ask: '最も小さいのは？', ans: ordered[itemCount - 1] });
+  queries.push({ ask: '2番目に大きいのは？', ans: ordered[1] });
+  if (itemCount >= 4) queries.push({ ask: '2番目に小さいのは？', ans: ordered[itemCount - 2] });
+  if (itemCount >= 5) queries.push({ ask: '中央(3番目)はどれ？', ans: ordered[2] });
+
   const q = pick(queries);
-  const distractors = ['A', 'B', 'C', 'D'].filter((n) => n !== q.ans);
+  const distractors = ordered.filter((n) => n !== q.ans);
 
   return {
     id: `longlogic-${Date.now()}-${Math.random()}`,
     kind: 'long-logic',
     prompt: q.ask,
     visual: lines,
-    choices: makeChoices(q.ans, distractors),
+    choices: makeChoices(q.ans, distractors.slice(0, 3)),
   };
 }
 
+type AnalogyQuad = { a: string; b: string; c: string; d: string; distractors: string[] };
+
+// Standard analogies — concrete, single-step relationships
+const ANALOGIES_NORMAL: AnalogyQuad[] = [
+  { a: '犬',     b: '子犬',     c: '猫',       d: '子猫',     distractors: ['ねずみ', 'うさぎ', '老猫'] },
+  { a: '日本',   b: '東京',     c: 'フランス', d: 'パリ',     distractors: ['ロンドン', 'ローマ', 'ベルリン'] },
+  { a: '本',     b: '読む',     c: '音楽',     d: '聴く',     distractors: ['見る', '書く', '走る'] },
+  { a: '医者',   b: '病院',     c: '先生',     d: '学校',     distractors: ['会社', '工場', '家'] },
+  { a: '太陽',   b: '昼',       c: '月',       d: '夜',       distractors: ['朝', '夕方', '雲'] },
+  { a: '魚',     b: '泳ぐ',     c: '鳥',       d: '飛ぶ',     distractors: ['歩く', '止まる', '鳴く'] },
+  { a: '春',     b: '桜',       c: '秋',       d: '紅葉',     distractors: ['雪', '花火', '台風'] },
+  { a: '足',     b: '靴',       c: '手',       d: '手袋',     distractors: ['帽子', 'マフラー', '指輪'] },
+  { a: '画家',   b: '絵',       c: '作家',     d: '本',       distractors: ['楽器', '映画', '道具'] },
+  { a: '熱い',   b: '冷たい',   c: '高い',     d: '低い',     distractors: ['広い', '速い', '深い'] },
+  { a: 'パン',   b: '小麦',     c: '酒',       d: '米',       distractors: ['豆', '芋', '果物'] },
+  { a: '車',     b: '道路',     c: '電車',     d: '線路',     distractors: ['空港', '港', '駅'] },
+  { a: '医師',   b: '聴診器',   c: '画家',     d: '絵筆',     distractors: ['ノート', '電卓', 'メス'] },
+  { a: '時計',   b: '時間',     c: '温度計',   d: '温度',     distractors: ['湿度', '高さ', '重さ'] },
+  { a: '雨',     b: '傘',       c: '太陽',     d: '帽子',     distractors: ['コート', '長靴', 'マフラー'] },
+  { a: '監督',   b: '映画',     c: '作曲家',   d: '音楽',     distractors: ['絵', '本', '舞台'] },
+  { a: 'パイロット', b: '飛行機', c: '船長',   d: '船',       distractors: ['電車', 'バス', '車'] },
+  { a: '蜂',     b: '蜜',       c: '牛',       d: '牛乳',     distractors: ['卵', '肉', 'チーズ'] },
+  { a: '鉛筆',   b: '書く',     c: 'はさみ',   d: '切る',     distractors: ['消す', '貼る', '結ぶ'] },
+  { a: '本',     b: '図書館',   c: '絵',       d: '美術館',   distractors: ['博物館', '映画館', '体育館'] },
+  { a: '東',     b: '西',       c: '南',       d: '北',       distractors: ['上', '下', '中央'] },
+  { a: '速い',   b: 'チーター', c: '大きい',   d: 'ゾウ',     distractors: ['キリン', 'ライオン', 'クジラ'] },
+  { a: '医者',   b: '人',       c: '獣医',     d: '動物',     distractors: ['植物', '鳥', '魚'] },
+  { a: '小説',   b: '読む',     c: '映画',     d: '観る',     distractors: ['描く', '聴く', '弾く'] },
+  { a: '日',     b: '週',       c: '月',       d: '年',       distractors: ['秒', '時', '分'] },
+];
+
+// Easy analogies — very obvious / first-order relations
+const ANALOGIES_EASY: AnalogyQuad[] = [
+  { a: '犬',   b: '子犬', c: '猫',   d: '子猫', distractors: ['ねずみ', 'うさぎ', '魚'] },
+  { a: '本',   b: '読む', c: '音楽', d: '聴く', distractors: ['食べる', '書く', '走る'] },
+  { a: '足',   b: '靴',   c: '手',   d: '手袋', distractors: ['帽子', 'マフラー', '指輪'] },
+  { a: '太陽', b: '昼',   c: '月',   d: '夜',   distractors: ['朝', '夕方', '雲'] },
+  { a: '魚',   b: '泳ぐ', c: '鳥',   d: '飛ぶ', distractors: ['歩く', '止まる', '泣く'] },
+  { a: '日本', b: '東京', c: 'フランス', d: 'パリ', distractors: ['ロンドン', 'ローマ', 'ベルリン'] },
+  { a: '東',   b: '西',   c: '南',   d: '北',   distractors: ['上', '下', '中央'] },
+];
+
+// Hard analogies — abstract, function-based, multi-step, lateral
+const ANALOGIES_HARD: AnalogyQuad[] = [
+  { a: '水',     b: '氷',       c: '雲',       d: '雨',       distractors: ['雪', '霧', '虹'] },           // 状態変化
+  { a: '医者',   b: '診断',     c: '探偵',     d: '推理',     distractors: ['取調', '逮捕', '尾行'] },      // 職業×核心動詞
+  { a: '原因',   b: '結果',     c: '質問',     d: '答え',     distractors: ['議論', '対話', '反論'] },      // 抽象的対概念
+  { a: '言葉',   b: '辞書',     c: '地図',     d: '地図帳',   distractors: ['図鑑', '百科事典', 'ガイドブック'] },  // 情報×集成
+  { a: '画家',   b: '絵筆',     c: '彫刻家',   d: '鑿',       distractors: ['ハンマー', '釘', 'のこぎり'] }, // 職業×固有道具
+  { a: '幼虫',   b: '蝶',       c: 'おたまじゃくし', d: 'カエル', distractors: ['とんぼ', '魚', 'ヘビ'] },     // 変態
+  { a: '記憶',   b: '忘却',     c: '出現',     d: '消失',     distractors: ['移動', '変化', '停止'] },      // 抽象×反対動作
+  { a: '原稿',   b: '本',       c: '設計図',   d: '建物',     distractors: ['工場', '部品', '機械'] },      // 計画→完成物
+  { a: 'シェイクスピア', b: '戯曲', c: 'ベートーヴェン', d: '交響曲', distractors: ['映画', '小説', '絵画'] }, // 芸術家×作品ジャンル
+  { a: '光',     b: '影',       c: '音',       d: '残響',     distractors: ['静寂', '振動', 'こだま'] },    // 物理現象×二次効果
+  { a: '雪',     b: '冬',       c: '台風',     d: '夏',       distractors: ['春', '秋', '梅雨'] },          // 現象×季節
+  { a: '医療',   b: '病気',     c: '修理',     d: '故障',     distractors: ['設計', '製造', '販売'] },      // 行為×対応する対象
+  { a: '文字',   b: '単語',     c: '原子',     d: '分子',     distractors: ['細胞', '宇宙', '物質'] },      // 構成要素×構成物
+  { a: '楽譜',   b: '演奏',     c: '台本',     d: '上演',     distractors: ['練習', '稽古', '撮影'] },      // 設計図×実行
+  { a: '速度',   b: 'スピード計', c: '気圧',   d: '気圧計',   distractors: ['風速計', '湿度計', '体温計'] }, // 計測対象×計器
+  { a: '法律',   b: '弁護士',   c: '病気',     d: '医師',     distractors: ['看護師', '裁判官', '警察'] },  // 領域×専門家
+  { a: '羊',     b: '群れ',     c: '魚',       d: '群れ',     distractors: ['列', '巣', '帯'] },            // 集合名詞 (羊×群、魚×群でも可・群以外を選ばせない用)
+  { a: '彫刻',   b: '石',       c: '陶器',     d: '土',       distractors: ['木', '金属', 'ガラス'] },      // 完成品×素材
+];
+
 /** Word analogy:  A : B = C : ?  Choose the word that matches the relationship. */
-function genAnalogy(): IqProblem {
-  type Quad = { a: string; b: string; c: string; d: string; distractors: string[] };
-  const quads: Quad[] = [
-    { a: '犬',     b: '子犬',     c: '猫',       d: '子猫',     distractors: ['ねずみ', 'うさぎ', '老猫'] },
-    { a: '日本',   b: '東京',     c: 'フランス', d: 'パリ',     distractors: ['ロンドン', 'ローマ', 'ベルリン'] },
-    { a: '本',     b: '読む',     c: '音楽',     d: '聴く',     distractors: ['見る', '書く', '走る'] },
-    { a: '医者',   b: '病院',     c: '先生',     d: '学校',     distractors: ['会社', '工場', '家'] },
-    { a: '太陽',   b: '昼',       c: '月',       d: '夜',       distractors: ['朝', '夕方', '雲'] },
-    { a: '魚',     b: '泳ぐ',     c: '鳥',       d: '飛ぶ',     distractors: ['歩く', '止まる', '鳴く'] },
-    { a: '春',     b: '桜',       c: '秋',       d: '紅葉',     distractors: ['雪', '花火', '台風'] },
-    { a: '足',     b: '靴',       c: '手',       d: '手袋',     distractors: ['帽子', 'マフラー', '指輪'] },
-    { a: '画家',   b: '絵',       c: '作家',     d: '本',       distractors: ['楽器', '映画', '道具'] },
-    { a: '熱い',   b: '冷たい',   c: '高い',     d: '低い',     distractors: ['広い', '速い', '深い'] },
-    { a: 'パン',   b: '小麦',     c: '酒',       d: '米',       distractors: ['豆', '芋', '果物'] },
-    { a: '車',     b: '道路',     c: '電車',     d: '線路',     distractors: ['空港', '港', '駅'] },
-    { a: '医師',   b: '聴診器',   c: '画家',     d: '絵筆',     distractors: ['ノート', '電卓', 'メス'] },
-    { a: '時計',   b: '時間',     c: '温度計',   d: '温度',     distractors: ['湿度', '高さ', '重さ'] },
-    { a: '雨',     b: '傘',       c: '太陽',     d: '帽子',     distractors: ['コート', '長靴', 'マフラー'] },
-    { a: '監督',   b: '映画',     c: '作曲家',   d: '音楽',     distractors: ['絵', '本', '舞台'] },
-    { a: 'パイロット', b: '飛行機', c: '船長',   d: '船',       distractors: ['電車', 'バス', '車'] },
-    { a: '蜂',     b: '蜜',       c: '牛',       d: '牛乳',     distractors: ['卵', '肉', 'チーズ'] },
-    { a: '鉛筆',   b: '書く',     c: 'はさみ',   d: '切る',     distractors: ['消す', '貼る', '結ぶ'] },
-    { a: '本',     b: '図書館',   c: '絵',       d: '美術館',   distractors: ['博物館', '映画館', '体育館'] },
-    { a: '東',     b: '西',       c: '南',       d: '北',       distractors: ['上', '下', '中央'] },
-    { a: '速い',   b: 'チーター', c: '大きい',   d: 'ゾウ',     distractors: ['キリン', 'ライオン', 'クジラ'] },
-    { a: '医者',   b: '人',       c: '獣医',     d: '動物',     distractors: ['植物', '鳥', '魚'] },
-    { a: '小説',   b: '読む',     c: '映画',     d: '観る',     distractors: ['描く', '聴く', '弾く'] },
-    { a: '日',     b: '週',       c: '月',       d: '年',       distractors: ['秒', '時', '分'] },
-  ];
-  const q = pick(quads);
+function genAnalogy(sub: SubLevel): IqProblem {
+  // hard: mostly hard-tier with some normal mixed in for variety; normal: mid; easy: easy only
+  const pool =
+    sub === 'easy'   ? ANALOGIES_EASY :
+    sub === 'normal' ? ANALOGIES_NORMAL :
+    [...ANALOGIES_NORMAL, ...ANALOGIES_HARD, ...ANALOGIES_HARD];  // weighted toward hard
+  const q = pick(pool);
   const visual = [`${q.a} : ${q.b}`, `${q.c} : ?`];
 
   return {
@@ -473,7 +662,13 @@ function problemSignature(p: IqProblem): string {
   return `${p.kind}::${p.visual.join(',')}::${correct}::${choiceSet}`;
 }
 
-function genByKind(kind: IqProblemKind, diff: IqDifficulty): IqProblem {
+/**
+ * Dispatch a single problem.
+ *  - `diff` is the resolved IqDifficulty (drives kid generators).
+ *  - `sub`  is the player-picked sub-level (drives adult generators where
+ *    'adult' as a single token isn't expressive enough on its own).
+ */
+function genByKind(kind: IqProblemKind, diff: IqDifficulty, sub: SubLevel): IqProblem {
   switch (kind) {
     case 'pattern':       return genPattern(diff);
     case 'odd-one-out':   return genOddOneOut(diff);
@@ -481,11 +676,11 @@ function genByKind(kind: IqProblemKind, diff: IqDifficulty): IqProblem {
     case 'sequence':      return genSequence(diff);
     case 'size-order':    return genSizeOrder();
     case 'logic':         return genLogic(diff);
-    case 'adv-sequence':  return genAdvSequence();
-    case 'letter-seq':    return genLetterSeq();
-    case 'mental-math':   return genMentalMath();
-    case 'long-logic':    return genLongLogic();
-    case 'analogy':       return genAnalogy();
+    case 'adv-sequence':  return genAdvSequence(sub);
+    case 'letter-seq':    return genLetterSeq(sub);
+    case 'mental-math':   return genMentalMath(sub);
+    case 'long-logic':    return genLongLogic(sub);
+    case 'analogy':       return genAnalogy(sub);
   }
 }
 
@@ -527,10 +722,10 @@ export function generateQuiz(
   const out: IqProblem[] = [];
 
   for (const kind of kinds) {
-    let problem = genByKind(kind, param);
+    let problem = genByKind(kind, param, sub);
     let tries = 0;
     while (seen.has(problemSignature(problem)) && tries < DEDUPE_MAX_TRIES) {
-      problem = genByKind(kind, param);
+      problem = genByKind(kind, param, sub);
       tries++;
     }
     seen.add(problemSignature(problem));
@@ -560,21 +755,21 @@ export interface IqResult {
 // adult scoring is stricter and 0% can drop into "below average" territory,
 // while kid scoring stays positive (keeps it kind for children).
 const MIN_IQ = 70;
-const MAX_IQ = 160;
-const KID_FLOOR = 85;
-const ADULT_FLOOR = 70;
+const MAX_IQ = 190;
 /**
- * Per-sub-level IQ cap. Higher difficulty → higher possible IQ ceiling, so
- * the score acts like a real IQ test: hitting high IQ requires solving the
- * harder problems. Adult mode adds a small bump because the test itself is
- * tougher than the kid version.
+ * Per-mode, per-sub-level IQ cap. Higher difficulty → higher possible ceiling,
+ * mimicking a real IQ test: hitting top scores requires the hardest problems.
+ * Adult caps are higher than kid caps because the adult problem set itself is
+ * harder, and adult mode is judged more strictly (lower floor).
  */
-const SUB_IQ_CAPS: Record<SubLevel, number> = {
-  easy:   110,  // かんたん: max ≈ "slightly above average"
-  normal: 130,  // ふつう:  max ≈ "very good"
-  hard:   160,  // むずかしい: max ≈ "exceptional"
+const IQ_CAPS: Record<IqMode, Record<SubLevel, number>> = {
+  kid:   { easy: 110, normal: 130, hard: 160 },
+  adult: { easy: 125, normal: 155, hard: 190 },  // adult+hard reaches genius tier
 };
-const ADULT_CAP_BONUS = 5;
+const IQ_FLOORS: Record<IqMode, number> = {
+  kid:   85,  // children always see ≥ average
+  adult: 70,  // strict — 0% on adult honestly shows below-average
+};
 
 export interface IqRange {
   /** lowest possible score for the (mode, sub) combination */
@@ -585,9 +780,7 @@ export interface IqRange {
 
 /** Inclusive [min, max] IQ range for the given mode/sub pair. */
 export function iqRangeFor(mode: IqMode, sub: SubLevel = DEFAULT_SUB_LEVEL): IqRange {
-  const cap = Math.min(MAX_IQ, SUB_IQ_CAPS[sub] + (mode === 'adult' ? ADULT_CAP_BONUS : 0));
-  const floor = mode === 'adult' ? ADULT_FLOOR : KID_FLOOR;
-  return { min: floor, max: cap };
+  return { min: IQ_FLOORS[mode], max: IQ_CAPS[mode][sub] };
 }
 
 /**
