@@ -89,6 +89,36 @@ export const DEFAULT_QUIZ_LENGTH: QuizLength = 5;
 /** Cap retries when trying to dedupe random problems. */
 const DEDUPE_MAX_TRIES = 25;
 
+// ── Time limit per problem ───────────────────────────────────────────────────
+//
+// Per-problem time limit (in seconds), tuned by problem kind, mode, and sub-
+// level. Computation feels like an IQ test: harder problems and adult mode
+// give tighter limits. Kid mode is generous. Timeout = wrong answer.
+
+const TIME_BASE_SEC: Record<IqProblemKind, number> = {
+  count:          7,
+  pattern:        9,
+  sequence:       10,
+  'size-order':   6,
+  'odd-one-out':  7,
+  logic:          12,
+  'adv-sequence': 14,
+  'letter-seq':   12,
+  'mental-math':  16,
+  'long-logic':   20,
+  'analogy':      14,
+};
+
+/** Seconds the player has to answer this problem. */
+export function timeFor(kind: IqProblemKind, mode: IqMode, sub: SubLevel = DEFAULT_SUB_LEVEL): number {
+  const base = TIME_BASE_SEC[kind];
+  // Sub-level multiplier — easier sub gets more time, harder gets less.
+  const subMult = sub === 'easy' ? 1.5 : sub === 'normal' ? 1.0 : 0.75;
+  // Kid mode is gentler (extra 40% time on top).
+  const modeMult = mode === 'kid' ? 1.4 : 1.0;
+  return Math.max(4, Math.round(base * subMult * modeMult));
+}
+
 // ── Helpers ──────────────────────────────────────────────────────────────────
 
 function randomInt(min: number, max: number): number {
@@ -749,6 +779,75 @@ export function generateQuiz(
   return out;
 }
 
+// ── Adaptive (one-at-a-time) generation ─────────────────────────────────────
+//
+// For adaptive IQ tests we generate problems lazily, with a difficulty that
+// can change between problems based on the player's running performance.
+
+export interface QuizGenerator {
+  /** Pull the next problem at the given sub-level. Returns null when exhausted. */
+  next(sub: SubLevel): IqProblem | null;
+  /** How many problems remain in the session budget. */
+  remaining(): number;
+}
+
+/**
+ * Build a stateful generator for one quiz session. Maintains its own dedupe
+ * set across `next()` calls so problems never repeat within a session.
+ */
+export function makeQuizGenerator(
+  age: number,
+  total: number,
+  mode: IqMode = 'kid',
+): QuizGenerator {
+  const seen = new Set<string>();
+  const kinds = kindMenuFor(age, mode);
+  let produced = 0;
+
+  return {
+    next(sub: SubLevel): IqProblem | null {
+      if (produced >= total) return null;
+      const param = paramFor(mode, sub);
+      const kind = kinds[Math.floor(Math.random() * kinds.length)];
+      let problem = genByKind(kind, param, sub);
+      let tries = 0;
+      while (seen.has(problemSignature(problem)) && tries < DEDUPE_MAX_TRIES) {
+        problem = genByKind(kind, param, sub);
+        tries++;
+      }
+      seen.add(problemSignature(problem));
+      produced++;
+      return problem;
+    },
+    remaining: () => total - produced,
+  };
+}
+
+export interface AnswerEntry {
+  /** The sub-level the problem was asked at. */
+  sub: SubLevel;
+  /** Whether the player got it right (timeouts count as wrong). */
+  correct: boolean;
+}
+
+/**
+ * Adaptive difficulty step. Looks at the last two answers:
+ *   - 2 correct in a row  → bump up (easy → normal → hard)
+ *   - 2 wrong in a row    → bump down (hard → normal → easy)
+ *   - mixed / first answer → stay
+ */
+export function nextSubLevel(current: SubLevel, history: AnswerEntry[]): SubLevel {
+  if (history.length < 2) return current;
+  const ladder: SubLevel[] = ['easy', 'normal', 'hard'];
+  const idx = ladder.indexOf(current);
+  const last2 = history.slice(-2);
+  const allCorrect = last2.every((h) => h.correct);
+  const allWrong   = last2.every((h) => !h.correct);
+  if (allCorrect && idx < ladder.length - 1) return ladder[idx + 1];
+  if (allWrong   && idx > 0)                  return ladder[idx - 1];
+  return current;
+}
+
 // ── Result scoring ───────────────────────────────────────────────────────────
 
 export interface IqResult {
@@ -852,4 +951,40 @@ export function scoreToResult(
   if (ratio >= 0.5) return { stars: 3, iq, title: 'ひらめきハンター！',     message: 'いい かんじ！もう一回 やってみる？',  color: 'yellow', emoji: '✨' };
   if (ratio >= 0.3) return { stars: 2, iq, title: 'ひらめき修行ちゅう！',   message: 'これからが たのしみ！',              color: 'green',  emoji: '🌱' };
   return                 { stars: 1, iq, title: 'ひらめき たんけん隊！',   message: 'チャレンジ えらい！また あそぼう！',  color: 'blue',   emoji: '🧭' };
+}
+
+/**
+ * Adaptive scoring: derive an IQ from the per-problem difficulty trajectory.
+ * The "achieved" sub-level is the highest level the player solved with ≥ 50%
+ * accuracy; that level's cap bounds the IQ. Overall accuracy then determines
+ * where in the floor→cap range the player lands.
+ *
+ * Falls back gracefully when the player only attempted one level.
+ */
+export function adaptiveScoreToResult(
+  history: AnswerEntry[],
+  age: number,
+  mode: IqMode = 'kid',
+): IqResult {
+  if (history.length === 0) return scoreToResult(0, 0, age, mode);
+
+  // Per-level accuracy
+  const buckets: Record<SubLevel, { correct: number; total: number }> = {
+    easy:   { correct: 0, total: 0 },
+    normal: { correct: 0, total: 0 },
+    hard:   { correct: 0, total: 0 },
+  };
+  for (const h of history) {
+    buckets[h.sub].total++;
+    if (h.correct) buckets[h.sub].correct++;
+  }
+
+  // Achieved sub-level = highest level with ≥ 50% accuracy and at least 1 attempt.
+  const passed = (b: { correct: number; total: number }) => b.total > 0 && b.correct / b.total >= 0.5;
+  let achieved: SubLevel = 'easy';
+  if (passed(buckets.normal)) achieved = 'normal';
+  if (passed(buckets.hard))   achieved = 'hard';
+
+  const totalCorrect = history.filter((h) => h.correct).length;
+  return scoreToResult(totalCorrect, history.length, age, mode, achieved);
 }
