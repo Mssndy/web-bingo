@@ -1,9 +1,11 @@
 'use client';
 
-import { useState, useCallback, useMemo } from 'react';
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react';
 import {
-  generateQuiz,
-  scoreToResult,
+  makeQuizGenerator,
+  nextSubLevel,
+  adaptiveScoreToResult,
+  timeFor,
   QUIZ_LENGTH_OPTIONS,
   DEFAULT_QUIZ_LENGTH,
   DEFAULT_SUB_LEVEL,
@@ -12,6 +14,8 @@ import {
   type IqResult,
   type IqMode,
   type SubLevel,
+  type AnswerEntry,
+  type QuizGenerator,
 } from '@/lib/iq-quiz';
 import { playCorrect, playWrong, playMiniGameStart, playNewBest } from '@/lib/sounds';
 
@@ -173,12 +177,20 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
   const [namePreset, setNamePreset] = useState<typeof NAME_PRESETS[number] | typeof OTHER>(initialNamePreset);
   const [otherName,  setOtherName]  = useState<string>(playerName ?? '');
   const [count, setCount]       = useState<QuizLength>(DEFAULT_QUIZ_LENGTH);
+  // The user-picked starting sub-level. During the quiz the actual difficulty
+  // adapts based on accuracy; the picker only seeds the first problem.
   const [subLevel, setSubLevel] = useState<SubLevel>(DEFAULT_SUB_LEVEL);
+  // Sub-level the *next* problem will be shown at (changes after each answer).
+  const [currentSub, setCurrentSub] = useState<SubLevel>(DEFAULT_SUB_LEVEL);
+  // Problems shown so far (lazily appended).
   const [quiz, setQuiz]         = useState<IqProblem[]>([]);
   const [qIndex, setQIndex]     = useState(0);
-  const [correctCount, setCorrect] = useState(0);
+  // Per-problem record of difficulty + correctness. Used for both adaptive
+  // step decisions and final IQ scoring.
+  const [history, setHistory]   = useState<AnswerEntry[]>([]);
   const [feedback, setFeedback] = useState<'correct' | 'wrong' | null>(null);
   const [selected, setSelected] = useState<string | null>(null);
+  const generatorRef = useRef<QuizGenerator | null>(null);
 
   // Display name resolved from current selection. Falls back to playerName, then "プレイヤー".
   const displayName = namePreset === OTHER
@@ -186,54 +198,101 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
     : namePreset;
 
   const current = quiz[qIndex];
+  const correctCount = history.filter((h) => h.correct).length;
   const result  = useMemo<IqResult | null>(
-    () => (phase === 'result' ? scoreToResult(correctCount, quiz.length, age, mode, subLevel) : null),
-    [phase, correctCount, quiz.length, age, mode, subLevel],
+    () => (phase === 'result' ? adaptiveScoreToResult(history, age, mode) : null),
+    [phase, history, age, mode],
   );
 
   const handleStart = useCallback(() => {
     playMiniGameStart();
-    setQuiz(generateQuiz(age, count, mode, subLevel));
+    generatorRef.current = makeQuizGenerator(age, count, mode);
+    const first = generatorRef.current.next(subLevel);
+    setQuiz(first ? [first] : []);
     setQIndex(0);
-    setCorrect(0);
+    setCurrentSub(subLevel);
+    setHistory([]);
     setFeedback(null);
     setSelected(null);
     setPhase('quiz');
   }, [age, count, mode, subLevel]);
 
+  // Record an answer and (after a moment, via handleNext) adapt difficulty.
+  function recordAnswer(correct: boolean) {
+    setHistory((h) => [...h, { sub: currentSub, correct }]);
+  }
+
   const handleChoice = useCallback((label: string) => {
     if (feedback !== null || !current) return;
     setSelected(label);
-    const isCorrect = current.choices.find((c) => c.label === label)?.correct;
+    const isCorrect = !!current.choices.find((c) => c.label === label)?.correct;
     if (isCorrect) {
       playCorrect();
-      setCorrect((c) => c + 1);
       setFeedback('correct');
     } else {
       playWrong();
       setFeedback('wrong');
     }
-  }, [feedback, current]);
+    recordAnswer(isCorrect);
+  }, [feedback, current]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleNext = useCallback(() => {
-    if (qIndex + 1 >= quiz.length) {
+    // Decide next difficulty based on history (which already includes this answer).
+    const newSub = nextSubLevel(currentSub, history);
+    if (history.length >= count) {
       playNewBest();
       setPhase('result');
       return;
     }
+    const nextProblem = generatorRef.current?.next(newSub) ?? null;
+    if (!nextProblem) {
+      playNewBest();
+      setPhase('result');
+      return;
+    }
+    setCurrentSub(newSub);
+    setQuiz((q) => [...q, nextProblem]);
     setQIndex((i) => i + 1);
     setFeedback(null);
     setSelected(null);
-  }, [qIndex, quiz.length]);
+  }, [currentSub, history, count]);
 
   const handlePlayAgain = useCallback(() => {
     setPhase('setup');
     setQuiz([]);
     setQIndex(0);
-    setCorrect(0);
+    setHistory([]);
     setFeedback(null);
     setSelected(null);
+    generatorRef.current = null;
   }, []);
+
+  // ── Per-problem time limit ──────────────────────────────────────────────
+  // Timeout = wrong answer. Bar is animated via CSS keyframe; this effect
+  // just schedules the auto-wrong trigger. Cleared if the player answers
+  // first or moves to a different problem.
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const currentTimeLimit = current ? timeFor(current.kind, mode, currentSub) : 0;
+
+  useEffect(() => {
+    if (phase !== 'quiz' || !current || feedback !== null) return;
+    const limitMs = currentTimeLimit * 1000;
+    timeoutRef.current = setTimeout(() => {
+      timeoutRef.current = null;
+      playWrong();
+      setFeedback('wrong');
+      setSelected(null);
+      recordAnswer(false);
+    }, limitMs);
+    return () => {
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current);
+        timeoutRef.current = null;
+      }
+    };
+    // re-arm when the visible problem changes or phase / mode change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [phase, current?.id, feedback, currentTimeLimit]);
 
   // ── Setup phase ────────────────────────────────────────────────────────
 
@@ -379,10 +438,12 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           </div>
         </div>
 
-        {/* Sub-difficulty picker — within the chosen age, pick かんたん/ふつう/むずかしい */}
+        {/* Sub-difficulty picker — within the chosen age, pick かんたん/ふつう/むずかしい.
+             Note: this seeds the *starting* difficulty; each problem then adapts
+             based on running accuracy (2正解→難化 / 2不正解→易化). */}
         <div className="flex flex-col gap-2">
           <p className="text-sm font-black text-gray-500 text-center">
-            {isAdult ? '難しさ' : 'むずかしさ'}
+            {isAdult ? '開始の難しさ (途中で自動調整)' : 'スタートのむずかしさ'}
           </p>
           <div className="grid grid-cols-3 gap-2">
             {subOptions.map((opt) => {
@@ -477,7 +538,7 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           <div className="text-center">
             <p className="text-xs font-black text-gray-400">もんだい</p>
             <p className="text-base font-black text-gray-700">
-              {qIndex + 1} / {quiz.length}
+              {qIndex + 1} / {count}
             </p>
           </div>
           <div className="text-right">
@@ -488,9 +549,9 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
           </div>
         </div>
 
-        {/* Progress bar */}
+        {/* Progress bar — one segment per problem, total = `count` */}
         <div className="flex gap-1">
-          {quiz.map((_, i) => (
+          {Array.from({ length: count }).map((_, i) => (
             <div
               key={i}
               className="flex-1 h-2 rounded-full transition-all"
@@ -504,6 +565,36 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
               }}
             />
           ))}
+        </div>
+
+        {/* Difficulty badge + time bar */}
+        <div className="flex items-center gap-2">
+          <span
+            className="text-[10px] font-black px-2 py-1 rounded-full text-white whitespace-nowrap"
+            style={{
+              background:
+                currentSub === 'easy'   ? 'var(--color-bingo-green)' :
+                currentSub === 'normal' ? 'var(--color-bingo-orange)' :
+                                          'var(--color-bingo-purple)',
+            }}
+          >
+            {currentSub === 'easy' ? '★☆☆ かんたん' : currentSub === 'normal' ? '★★☆ ふつう' : '★★★ むずかしい'}
+          </span>
+          {/* Time bar — CSS keyframe shrinks width and shifts color (green→yellow→red).
+              Pause when feedback is shown so the bar freezes on the answered state. */}
+          <div className="flex-1 h-3 rounded-full overflow-hidden" style={{ background: '#e5e7eb' }}>
+            <div
+              key={`bar-${current.id}`}
+              className="h-full rounded-full"
+              style={{
+                animation: `time-bar-shrink ${currentTimeLimit}s linear forwards`,
+                animationPlayState: feedback !== null ? 'paused' : 'running',
+              }}
+            />
+          </div>
+          <span className="text-[10px] font-black text-gray-400 tabular-nums w-7 text-right">
+            {currentTimeLimit}s
+          </span>
         </div>
 
         {/* Prompt */}
@@ -593,7 +684,7 @@ export default function IqGameScreen({ playerName, onHome }: Props) {
                   : 'var(--color-bingo-blue)',
               }}
             >
-              {qIndex + 1 >= quiz.length
+              {history.length >= count
                 ? (mode === 'adult' ? '🏁 結果を見る' : '🏁 けっか を みる')
                 : (mode === 'adult' ? '次の問題 →' : 'つぎの もんだい →')}
             </button>
