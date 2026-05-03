@@ -415,3 +415,74 @@ export function playGoalReached(): void {
   tone(ac, 2093, t + 0.60, 0.20, 'sine', 0.08);
   tone(ac, 2637, t + 0.66, 0.16, 'sine', 0.06);
 }
+
+// ── 100m走 ────────────────────────────────────────────────────────────────────
+
+/** スプリント: スタート笛 「ピーッ！」 */
+export function playSprintWhistle(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  // 高音の連続トーンで笛を表現
+  tone(ac, 2200, t,        0.18, 'triangle', 0.30);
+  tone(ac, 2300, t + 0.05, 0.16, 'triangle', 0.22);
+  tone(ac, 2400, t + 0.20, 0.14, 'triangle', 0.18);
+}
+
+/** スプリント: カウントダウン拍 (3 / 2 / 1 ごとに) */
+export function playSprintBeep(pitch: number = 880): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.03, 0.10);
+  tone(ac, pitch, t, 0.10, 'square', 0.22);
+}
+
+/** スプリント: 足音「タッ」 (連打のたびに低コストで再生) */
+export function playSprintStep(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  // 低めのキック + 短いノイズで「ザッ」感を演出
+  const osc = ac.createOscillator();
+  const gain = ac.createGain();
+  osc.connect(gain);
+  gain.connect(ac.destination);
+  osc.type = 'sine';
+  osc.frequency.setValueAtTime(160, t);
+  osc.frequency.exponentialRampToValueAtTime(70, t + 0.05);
+  gain.gain.setValueAtTime(0.18, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.06);
+  osc.start(t);
+  osc.stop(t + 0.07);
+}
+
+/** スプリント: ゴール時の歓声 (太いホワイトノイズ + 上昇トーン) */
+export function playSprintCheer(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  // 歓声っぽいノイズ
+  const bufSize = Math.ceil(ac.sampleRate * 0.8);
+  const buf = ac.createBuffer(1, bufSize, ac.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < bufSize; i++) data[i] = (Math.random() * 2 - 1) * (1 - i / bufSize);
+  const src = ac.createBufferSource();
+  const filter = ac.createBiquadFilter();
+  const gain = ac.createGain();
+  src.buffer = buf;
+  src.connect(filter);
+  filter.connect(gain);
+  gain.connect(ac.destination);
+  filter.type = 'bandpass';
+  filter.frequency.value = 1200;
+  filter.Q.value = 0.6;
+  gain.gain.setValueAtTime(0.22, t);
+  gain.gain.exponentialRampToValueAtTime(0.001, t + 0.8);
+  src.start(t);
+  src.stop(t + 0.85);
+  // 上昇するトランペット風和音
+  tone(ac, 523, t,        0.45, 'sawtooth', 0.10);
+  tone(ac, 784, t + 0.05, 0.40, 'sawtooth', 0.10);
+  tone(ac, 1047, t + 0.10, 0.35, 'sawtooth', 0.10);
+}

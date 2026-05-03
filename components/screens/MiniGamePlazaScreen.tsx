@@ -18,9 +18,10 @@ interface Props {
   onJanken: () => void;
   onToss: () => void;
   onIq: () => void;
+  onSprint: () => void;
 }
 
-export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onToss, onIq }: Props) {
+export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onToss, onIq, onSprint }: Props) {
   const GAMES: GameCard[] = [
     {
       id: 'janken',
@@ -51,6 +52,16 @@ export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onTo
       border: 'rgba(204,93,232,0.6)',
       anim: 'float-bob-3 3.5s ease-in-out infinite 1.4s',
       onSelect: onIq,
+    },
+    {
+      id: 'sprint',
+      emoji: '🏃‍♂️',
+      label: '100m走',
+      desc: 'れんだで\nゴールせよ！',
+      gradient: 'linear-gradient(135deg, #ef4444 0%, #f97316 100%)',
+      border: 'rgba(239,68,68,0.6)',
+      anim: 'float-bob-1 3.8s ease-in-out infinite 2.1s',
+      onSelect: onSprint,
     },
   ];
 
