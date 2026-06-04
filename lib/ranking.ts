@@ -9,6 +9,9 @@ export type RankGameMode =
   | 'toss'           // たまなげビンゴ — score (points)
   | 'janken'         // じゃんけん      — wins in session
   | 'shiritori'      // しりとり        — chain length
+  | 'memory'         // しんけいすいじゃく — points (time + mistakes)
+  | 'mogura'         // こたえモグラ   — correct answers in time
+  | 'rhythm'         // リズムタップ   — points
   | 'practice'       // けいさん練習   — streak
   | 'easy'           // かんたん学ぼう — streak
   | 'char-practice'; // もじ練習       — streak
@@ -26,6 +29,9 @@ export const RANK_MODE_META: Record<RankGameMode, { label: string; emoji: string
   toss:           { label: 'たまなげ',   emoji: '⚾', unit: 'てん'  },
   janken:         { label: 'じゃんけん', emoji: '✊', unit: 'かち'  },
   shiritori:      { label: 'しりとり',   emoji: '🦒', unit: 'ことば' },
+  memory:         { label: 'しんけい',   emoji: '🧠', unit: 'てん'  },
+  mogura:         { label: 'モグラ',     emoji: '🐹', unit: 'もん'  },
+  rhythm:         { label: 'リズム',     emoji: '🎵', unit: 'てん'  },
   practice:       { label: 'けいさん',   emoji: '🧮', unit: 'もん'  },
   easy:           { label: 'かんたん',   emoji: '🍎', unit: 'もん'  },
   'char-practice':{ label: 'もじ',       emoji: '📖', unit: 'もん'  },

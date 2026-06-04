@@ -20,9 +20,12 @@ interface Props {
   onIq: () => void;
   onSprint: () => void;
   onShiritori: () => void;
+  onMemory: () => void;
+  onMogura: () => void;
+  onRhythm: () => void;
 }
 
-export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onToss, onIq, onSprint, onShiritori }: Props) {
+export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onToss, onIq, onSprint, onShiritori, onMemory, onMogura, onRhythm }: Props) {
   const GAMES: GameCard[] = [
     {
       id: 'janken',
@@ -73,6 +76,36 @@ export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onTo
       border: 'rgba(16,152,173,0.6)',
       anim: 'float-bob-2 4.2s ease-in-out infinite 2.8s',
       onSelect: onShiritori,
+    },
+    {
+      id: 'memory',
+      emoji: '🧠',
+      label: 'しんけいすいじゃく',
+      desc: 'おなじ絵を\nさがそう！',
+      gradient: 'linear-gradient(135deg, #5f3dc4 0%, #9c36b5 100%)',
+      border: 'rgba(95,61,196,0.6)',
+      anim: 'float-bob-3 3.5s ease-in-out infinite 3.5s',
+      onSelect: onMemory,
+    },
+    {
+      id: 'mogura',
+      emoji: '🐹',
+      label: 'こたえモグラ',
+      desc: 'けいさんして\nたたこう！',
+      gradient: 'linear-gradient(135deg, #f59f00 0%, #b45309 100%)',
+      border: 'rgba(245,159,0,0.6)',
+      anim: 'float-bob-1 3.8s ease-in-out infinite 4.2s',
+      onSelect: onMogura,
+    },
+    {
+      id: 'rhythm',
+      emoji: '🎵',
+      label: 'リズムタップ',
+      desc: 'タイミングよく\nタッチ！',
+      gradient: 'linear-gradient(135deg, #f06595 0%, #845ef7 100%)',
+      border: 'rgba(240,101,149,0.6)',
+      anim: 'float-bob-2 4.2s ease-in-out infinite 4.9s',
+      onSelect: onRhythm,
     },
   ];
 

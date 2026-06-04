@@ -7,6 +7,7 @@ export type AppScreen =
   | 'char-settings' | 'char-game'
   | 'char-practice-settings' | 'char-practice'
   | 'minigame-plaza' | 'janken' | 'toss' | 'iq' | 'sprint' | 'shiritori'
+  | 'memory' | 'mogura' | 'rhythm'
   | 'ranking'
   | 'session-complete'
   | 'sugoroku';

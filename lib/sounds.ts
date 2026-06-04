@@ -416,6 +416,41 @@ export function playGoalReached(): void {
   tone(ac, 2637, t + 0.66, 0.16, 'sine', 0.06);
 }
 
+// ── こたえモグラ ──────────────────────────────────────────────────────────────
+
+/** モグラが ひょっこり出る「ぴょこっ」 */
+export function playMoguraPop(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  sweep(ac, 220, 560, t, 0.10, 'sine', 0.16);
+}
+
+// ── リズムタップ ──────────────────────────────────────────────────────────────
+
+/** メトロノームの拍「コッ」（軽め） */
+export function playTick(): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  tone(ac, 1180, t, 0.04, 'square', 0.09);
+}
+
+/** リズムタップ判定音: Perfect は きらり、Good は ぽん */
+export function playRhythmHit(perfect: boolean): void {
+  const ac = makeCtx();
+  if (!ac) return;
+  const t = ac.currentTime;
+  snap(ac, t, 0.03, 0.12);
+  if (perfect) {
+    tone(ac, 880,  t,        0.08, 'triangle', 0.24);
+    tone(ac, 1320, t + 0.04, 0.14, 'sine',     0.16);
+    tone(ac, 1760, t + 0.08, 0.10, 'sine',     0.08);
+  } else {
+    tone(ac, 620, t, 0.09, 'triangle', 0.18);
+  }
+}
+
 // ── 100m走 ────────────────────────────────────────────────────────────────────
 
 /** スプリント: スタート笛 「ピーッ！」 */

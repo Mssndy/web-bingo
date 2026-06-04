@@ -31,6 +31,9 @@ import TossGameScreen from '@/components/screens/TossGameScreen';
 import IqGameScreen from '@/components/screens/IqGameScreen';
 import SprintGameScreen from '@/components/screens/SprintGameScreen';
 import ShiritoriGameScreen from '@/components/screens/ShiritoriGameScreen';
+import MemoryGameScreen from '@/components/screens/MemoryGameScreen';
+import MoguraGameScreen from '@/components/screens/MoguraGameScreen';
+import RhythmGameScreen from '@/components/screens/RhythmGameScreen';
 import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
 import RankingScreen from '@/components/screens/RankingScreen';
 import SessionCompleteScreen from '@/components/screens/SessionCompleteScreen';
@@ -469,6 +472,9 @@ export default function BingoApp() {
           onIq={() => setScreen('iq')}
           onSprint={() => setScreen('sprint')}
           onShiritori={() => setScreen('shiritori')}
+          onMemory={() => setScreen('memory')}
+          onMogura={() => setScreen('mogura')}
+          onRhythm={() => setScreen('rhythm')}
         />
       )}
       {screen === 'janken' && (
@@ -497,6 +503,24 @@ export default function BingoApp() {
       )}
       {screen === 'shiritori' && (
         <ShiritoriGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
+        />
+      )}
+      {screen === 'memory' && (
+        <MemoryGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
+        />
+      )}
+      {screen === 'mogura' && (
+        <MoguraGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
+        />
+      )}
+      {screen === 'rhythm' && (
+        <RhythmGameScreen
           playerName={playerName}
           onHome={() => setScreen('minigame-plaza')}
         />
