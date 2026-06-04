@@ -30,6 +30,7 @@ import JankenGameScreen from '@/components/screens/JankenGameScreen';
 import TossGameScreen from '@/components/screens/TossGameScreen';
 import IqGameScreen from '@/components/screens/IqGameScreen';
 import SprintGameScreen from '@/components/screens/SprintGameScreen';
+import ShiritoriGameScreen from '@/components/screens/ShiritoriGameScreen';
 import MiniGamePlazaScreen from '@/components/screens/MiniGamePlazaScreen';
 import RankingScreen from '@/components/screens/RankingScreen';
 import SessionCompleteScreen from '@/components/screens/SessionCompleteScreen';
@@ -467,6 +468,7 @@ export default function BingoApp() {
           onToss={() => setScreen('toss')}
           onIq={() => setScreen('iq')}
           onSprint={() => setScreen('sprint')}
+          onShiritori={() => setScreen('shiritori')}
         />
       )}
       {screen === 'janken' && (
@@ -489,6 +491,12 @@ export default function BingoApp() {
       )}
       {screen === 'sprint' && (
         <SprintGameScreen
+          playerName={playerName}
+          onHome={() => setScreen('minigame-plaza')}
+        />
+      )}
+      {screen === 'shiritori' && (
+        <ShiritoriGameScreen
           playerName={playerName}
           onHome={() => setScreen('minigame-plaza')}
         />

@@ -8,7 +8,7 @@ interface Props {
   onHome: () => void;
 }
 
-const MODES: RankGameMode[] = ['toss', 'janken', 'practice', 'easy', 'char-practice'];
+const MODES: RankGameMode[] = ['toss', 'janken', 'shiritori', 'practice', 'easy', 'char-practice'];
 
 const PERIOD_LABELS: Record<RankPeriod, string> = {
   day:  '日',
@@ -22,6 +22,7 @@ const MEDALS = ['🥇', '🥈', '🥉'];
 const MODE_BG: Record<RankGameMode, string> = {
   toss:           'linear-gradient(135deg, #ff922b 0%, #e03131 100%)',
   janken:         'linear-gradient(135deg, #667eea 0%, #764ba2 100%)',
+  shiritori:      'linear-gradient(135deg, #38d9a9 0%, #1098ad 100%)',
   practice:       'linear-gradient(135deg, #cc5de8 0%, #4d96ff 100%)',
   easy:           'linear-gradient(135deg, #ff6b9d 0%, #ff922b 100%)',
   'char-practice':'linear-gradient(135deg, #6bcb77 0%, #4d96ff 100%)',

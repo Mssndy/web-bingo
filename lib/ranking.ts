@@ -8,6 +8,7 @@ import { pushRankEntryToServer, fetchRankingsFromServer } from './api';
 export type RankGameMode =
   | 'toss'           // たまなげビンゴ — score (points)
   | 'janken'         // じゃんけん      — wins in session
+  | 'shiritori'      // しりとり        — chain length
   | 'practice'       // けいさん練習   — streak
   | 'easy'           // かんたん学ぼう — streak
   | 'char-practice'; // もじ練習       — streak
@@ -24,6 +25,7 @@ export interface RankEntry {
 export const RANK_MODE_META: Record<RankGameMode, { label: string; emoji: string; unit: string }> = {
   toss:           { label: 'たまなげ',   emoji: '⚾', unit: 'てん'  },
   janken:         { label: 'じゃんけん', emoji: '✊', unit: 'かち'  },
+  shiritori:      { label: 'しりとり',   emoji: '🦒', unit: 'ことば' },
   practice:       { label: 'けいさん',   emoji: '🧮', unit: 'もん'  },
   easy:           { label: 'かんたん',   emoji: '🍎', unit: 'もん'  },
   'char-practice':{ label: 'もじ',       emoji: '📖', unit: 'もん'  },
