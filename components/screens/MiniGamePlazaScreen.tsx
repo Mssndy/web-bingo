@@ -81,7 +81,7 @@ export default function MiniGamePlazaScreen({ playerName, onHome, onJanken, onTo
       id: 'memory',
       emoji: '🧠',
       label: 'しんけいすいじゃく',
-      desc: 'トランプも\nあるよ！🃏',
+      desc: 'CPUたいせん\nできるよ！🤖',
       gradient: 'linear-gradient(135deg, #5f3dc4 0%, #9c36b5 100%)',
       border: 'rgba(95,61,196,0.6)',
       anim: 'float-bob-3 3.5s ease-in-out infinite 3.5s',
