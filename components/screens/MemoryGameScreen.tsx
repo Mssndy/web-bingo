@@ -2,9 +2,10 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { shuffle } from '@/lib/bingo';
-import { playCardFlip, playCorrect, playWrong, playMiniGameStart, playNewBest, playGoalReached } from '@/lib/sounds';
+import { playCardFlip, playCorrect, playWrong, playMiniGameStart, playNewBest, playGoalReached, playTrumpLose } from '@/lib/sounds';
 import { startBgm, stopBgm } from '@/lib/bgm';
 import { saveRankEntry, isPersonalBest } from '@/lib/ranking';
+import { CPU_MEM_CHANCE, rollChance, randomPick, type CpuLevel } from '@/lib/memory';
 
 interface Props {
   playerName: string;
@@ -14,6 +15,9 @@ interface Props {
 type Phase = 'ready' | 'play' | 'done';
 type Diff = 'easy' | 'normal' | 'hard' | 'expert';
 type Theme = 'emoji' | 'trump';
+type Mode = 'solo' | 'vs';
+type Turn = 'you' | 'cpu';
+type VsResult = 'win' | 'lose' | 'draw';
 
 interface Card {
   /** デッキ内の一意キー */
@@ -98,10 +102,29 @@ function TrumpFace({ rank, suit, red }: { rank: string; suit: string; red: boole
   );
 }
 
+/** ready画面の トグルボタン（選択中は むらさき） */
+function Choice({ on, onClick, children }: { on: boolean; onClick: () => void; children: React.ReactNode }) {
+  return (
+    <button
+      onClick={onClick}
+      className="rounded-2xl py-3 text-base font-black shadow-md active:scale-95 transition-all"
+      style={{
+        background: on ? PURPLE : 'white',
+        color: on ? 'white' : '#868e96',
+        border: on ? '3px solid #9c36b5' : '3px solid rgba(0,0,0,0.08)',
+      }}
+    >
+      {children}
+    </button>
+  );
+}
+
 export default function MemoryGameScreen({ playerName, onHome }: Props) {
   const [phase, setPhase]   = useState<Phase>('ready');
   const [diff, setDiff]     = useState<Diff>('easy');
   const [theme, setTheme]   = useState<Theme>('emoji');
+  const [mode, setMode]     = useState<Mode>('solo');
+  const [cpuLevel, setCpuLevel] = useState<CpuLevel>('weak');
   const [cards, setCards]   = useState<Card[]>([]);
   const [flipped, setFlipped] = useState<number[]>([]); // cards 配列上の index（最大2）
   const [moves, setMoves]   = useState(0);
@@ -109,6 +132,11 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
   const [elapsed, setElapsed] = useState(0);
   const [points, setPoints] = useState(0);
   const [isBest, setIsBest] = useState(false);
+  // 対戦用
+  const [turn, setTurn]     = useState<Turn>('you');
+  const [youPairs, setYouPairs] = useState(0);
+  const [cpuPairs, setCpuPairs] = useState(0);
+  const [vsResult, setVsResult] = useState<VsResult>('draw');
   const [bgmOn, setBgmOn]   = useState(() => {
     if (typeof window === 'undefined') return true;
     return localStorage.getItem(BGM_KEY) !== '0';
@@ -117,6 +145,15 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
   const startRef = useRef(0);
   const tickRef  = useRef<ReturnType<typeof setInterval> | null>(null);
   const flipTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // タイマー内クロージャから最新値を読むためのミラー
+  const cardsRef = useRef<Card[]>([]);
+  const movesRef = useRef(0);
+  const youPairsRef = useRef(0);
+  const cpuPairsRef = useRef(0);
+  // CPU の記憶（cards index → matchId）と このゲームの記憶力
+  const cpuMem = useRef<Map<number, string>>(new Map());
+  const memChanceRef = useRef(CPU_MEM_CHANCE.weak);
+  const cpuPlan = useRef<{ first: number; second: number | null } | null>(null);
 
   function clearTimers() {
     if (tickRef.current)  { clearInterval(tickRef.current); tickRef.current = null; }
@@ -139,24 +176,39 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
     else stopBgm();
   }
 
+  function setDeck(deck: Card[]) {
+    cardsRef.current = deck;
+    setCards(deck);
+  }
+
   function handleStart(d: Diff) {
     clearTimers();
     setDiff(d);
-    setCards(buildDeck(d, theme));
+    setDeck(buildDeck(d, theme));
     setFlipped([]);
-    setMoves(0);
+    setMoves(0); movesRef.current = 0;
     setLocked(false);
     setElapsed(0);
+    // 対戦リセット
+    cpuMem.current = new Map();
+    memChanceRef.current = CPU_MEM_CHANCE[cpuLevel];
+    cpuPlan.current = null;
+    youPairsRef.current = 0; cpuPairsRef.current = 0;
+    setYouPairs(0); setCpuPairs(0);
+    setTurn('you'); // 子供が さきばん（勝ちやすい）
     setPhase('play');
     playMiniGameStart();
     if (bgmOn) startBgm();
-    startRef.current = nowMs();
-    tickRef.current = setInterval(() => {
-      setElapsed(Math.floor((nowMs() - startRef.current) / 1000));
-    }, 250);
+    if (mode === 'solo') {
+      startRef.current = nowMs();
+      tickRef.current = setInterval(() => {
+        setElapsed(Math.floor((nowMs() - startRef.current) / 1000));
+      }, 250);
+    }
   }
 
-  function finish(finalMoves: number) {
+  // ── ひとり: クリアでスコア計算 ───────────────────────────────────────────────
+  function finishSolo(finalMoves: number) {
     clearTimers();
     stopBgm();
     const pairs = DIFFS[diff].pairs;
@@ -172,29 +224,138 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
     setPhase('done');
   }
 
+  // ── 対戦: 全ペア決着で勝敗判定 ──────────────────────────────────────────────
+  function finishVs() {
+    clearTimers();
+    stopBgm();
+    const you = youPairsRef.current;
+    const cpu = cpuPairsRef.current;
+    const result: VsResult = you > cpu ? 'win' : you < cpu ? 'lose' : 'draw';
+    setVsResult(result);
+    if (result === 'win') playNewBest();
+    else if (result === 'draw') playGoalReached();
+    else playTrumpLose(); // 負けでも こわくない やさしい音
+    setPhase('done');
+  }
+
+  // ── CPU の記憶ヘルパー ──────────────────────────────────────────────────────
+  function cpuRemember(idx: number) {
+    if (rollChance(memChanceRef.current)) cpuMem.current.set(idx, cardsRef.current[idx].matchId);
+  }
+  function availIdx(exclude: number[] = []): number[] {
+    return cardsRef.current
+      .map((_, i) => i)
+      .filter((i) => !cardsRef.current[i].matched && !exclude.includes(i));
+  }
+  /** 記憶から「同じ絵を2枚知っている」組を探す */
+  function cpuKnownPair(): [number, number] | null {
+    const byId = new Map<string, number[]>();
+    cpuMem.current.forEach((mid, idx) => {
+      if (cardsRef.current[idx].matched) return;
+      const a = byId.get(mid) ?? [];
+      a.push(idx);
+      byId.set(mid, a);
+    });
+    for (const arr of byId.values()) if (arr.length >= 2) return [arr[0], arr[1]];
+    return null;
+  }
+
+  // ── CPU の手番（thinkして2枚めくる） ────────────────────────────────────────
+  function startCpuTurn() {
+    setTurn('cpu');
+    setLocked(true);
+    flipTimer.current = setTimeout(cpuPickFirst, 750);
+  }
+
+  function cpuPickFirst() {
+    const pair = cpuKnownPair();
+    let first: number;
+    let second: number | null = null;
+    if (pair) { first = pair[0]; second = pair[1]; }
+    else { first = randomPick(availIdx()); }
+    cpuPlan.current = { first, second };
+    playCardFlip();
+    setFlipped([first]);
+    cpuRemember(first);
+    flipTimer.current = setTimeout(cpuPickSecond, 800);
+  }
+
+  function cpuPickSecond() {
+    const plan = cpuPlan.current;
+    if (!plan) return;
+    const { first } = plan;
+    let second = plan.second;
+    if (second == null) {
+      const mid = cardsRef.current[first].matchId;
+      // 記憶の中に そろう相手がいれば それを めくる
+      let partner: number | null = null;
+      cpuMem.current.forEach((m, idx) => {
+        if (partner == null && idx !== first && m === mid && !cardsRef.current[idx].matched) partner = idx;
+      });
+      second = partner != null ? partner : randomPick(availIdx([first]));
+    }
+    cpuPlan.current = { first, second };
+    playCardFlip();
+    setFlipped([first, second]);
+    cpuRemember(second);
+    flipTimer.current = setTimeout(cpuResolve, 950);
+  }
+
+  function cpuResolve() {
+    const plan = cpuPlan.current;
+    if (!plan || plan.second == null) return;
+    const { first, second } = plan;
+    const cur = cardsRef.current;
+    if (cur[first].matchId === cur[second].matchId) {
+      // そろった → CPU 得点、もう一度 CPU の番
+      playCorrect();
+      const nd = cur.map((c, i) => (i === first || i === second ? { ...c, matched: true } : c));
+      setDeck(nd);
+      const np = cpuPairsRef.current + 1; cpuPairsRef.current = np; setCpuPairs(np);
+      setFlipped([]);
+      if (nd.every((c) => c.matched)) { finishVs(); return; }
+      flipTimer.current = setTimeout(cpuPickFirst, 650);
+    } else {
+      // はずれ → やさしく戻して きみの番へ
+      playWrong();
+      flipTimer.current = setTimeout(() => {
+        setFlipped([]);
+        setTurn('you');
+        setLocked(false);
+      }, 650);
+    }
+  }
+
+  // ── プレイヤーの めくり ─────────────────────────────────────────────────────
   function handleFlip(idx: number) {
     if (locked || phase !== 'play') return;
-    const card = cards[idx];
+    if (mode === 'vs' && turn !== 'you') return;
+    const card = cardsRef.current[idx];
     if (card.matched || flipped.includes(idx) || flipped.length === 2) return;
 
     playCardFlip();
+    if (mode === 'vs') cpuRemember(idx); // CPU は きみの めくりも 見ている
     const next = [...flipped, idx];
     setFlipped(next);
 
     if (next.length === 2) {
-      const newMoves = moves + 1;
-      setMoves(newMoves);
+      const newMoves = movesRef.current + 1; movesRef.current = newMoves; setMoves(newMoves);
       const [a, b] = next;
-      if (cards[a].matchId === cards[b].matchId) {
+      if (cardsRef.current[a].matchId === cardsRef.current[b].matchId) {
         // マッチ！
         setLocked(true);
         flipTimer.current = setTimeout(() => {
           playCorrect();
-          const updated = cards.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c));
-          setCards(updated);
+          const nd = cardsRef.current.map((c, i) => (i === a || i === b ? { ...c, matched: true } : c));
+          setDeck(nd);
           setFlipped([]);
           setLocked(false);
-          if (updated.every((c) => c.matched)) finish(newMoves);
+          if (mode === 'vs') { const np = youPairsRef.current + 1; youPairsRef.current = np; setYouPairs(np); }
+          if (nd.every((c) => c.matched)) {
+            if (mode === 'vs') finishVs(); else finishSolo(newMoves);
+            return;
+          }
+          // そろったら 同じ人(きみ)の番が つづく
         }, 480);
       } else {
         // はずれ — やさしく裏に戻す
@@ -202,7 +363,8 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
         flipTimer.current = setTimeout(() => {
           playWrong();
           setFlipped([]);
-          setLocked(false);
+          if (mode === 'vs') startCpuTurn();
+          else setLocked(false);
         }, 850);
       }
     }
@@ -241,39 +403,45 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
       {phase === 'ready' && (
         <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.25s_ease_both]">
           <div className="w-full rounded-3xl px-6 py-6 text-center shadow-lg" style={{ background: PURPLE }}>
-            <p className="text-5xl mb-2">{theme === 'trump' ? '🃏🃏' : '🐶🐶'}</p>
+            <p className="text-5xl mb-2">{mode === 'vs' ? '🙋🆚🤖' : theme === 'trump' ? '🃏🃏' : '🐶🐶'}</p>
             <p className="text-lg font-black text-white drop-shadow leading-relaxed">
-              カードを2まい めくって<br />
-              {theme === 'trump' ? 'おなじ カードを' : 'おなじ絵を'} そろえてね！
+              {mode === 'vs'
+                ? <>CPU と かわりばんこ！<br />おおく そろえたら かち！</>
+                : <>カードを2まい めくって<br />{theme === 'trump' ? 'おなじ カードを' : 'おなじ絵を'} そろえてね！</>}
             </p>
           </div>
+
+          {/* あそびかた えらび */}
+          <div className="w-full">
+            <p className="text-sm font-black text-gray-400 text-center mb-2">あそびかた 🎮</p>
+            <div className="grid grid-cols-2 gap-3">
+              <Choice on={mode === 'solo'} onClick={() => setMode('solo')}>🙋 ひとりで</Choice>
+              <Choice on={mode === 'vs'} onClick={() => setMode('vs')}>🤖 たいせん</Choice>
+            </div>
+          </div>
+
+          {/* 対戦のときだけ CPU の つよさ */}
+          {mode === 'vs' && (
+            <div className="w-full animate-[fade-in_0.25s_ease_both]">
+              <p className="text-sm font-black text-gray-400 text-center mb-2">コンピュータの つよさ 🤖</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Choice on={cpuLevel === 'weak'} onClick={() => setCpuLevel('weak')}>😊 よわい</Choice>
+                <Choice on={cpuLevel === 'normal'} onClick={() => setCpuLevel('normal')}>🔥 つよい</Choice>
+              </div>
+            </div>
+          )}
 
           {/* カードの えがら えらび */}
           <div className="w-full">
             <p className="text-sm font-black text-gray-400 text-center mb-2">カードの えがら 🎴</p>
             <div className="grid grid-cols-2 gap-3">
-              {([['emoji', '🐶 えがら'], ['trump', '🃏 トランプ']] as [Theme, string][]).map(([t, label]) => {
-                const on = theme === t;
-                return (
-                  <button
-                    key={t}
-                    onClick={() => setTheme(t)}
-                    className="rounded-2xl py-3 text-base font-black shadow-md active:scale-95 transition-all"
-                    style={{
-                      background: on ? PURPLE : 'white',
-                      color: on ? 'white' : '#868e96',
-                      border: on ? '3px solid #9c36b5' : '3px solid rgba(0,0,0,0.08)',
-                    }}
-                  >
-                    {label}
-                  </button>
-                );
-              })}
+              <Choice on={theme === 'emoji'} onClick={() => setTheme('emoji')}>🐶 えがら</Choice>
+              <Choice on={theme === 'trump'} onClick={() => setTheme('trump')}>🃏 トランプ</Choice>
             </div>
           </div>
 
-          {/* むずかしさ えらび */}
-          <p className="text-sm font-black text-gray-400">どっちで あそぶ？</p>
+          {/* むずかしさ えらび（＝スタート） */}
+          <p className="text-sm font-black text-gray-400">どれで あそぶ？</p>
           <div className="grid grid-cols-2 gap-3 w-full">
             {DIFF_ORDER.map((d) => {
               const c = DIFFS[d];
@@ -291,7 +459,9 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
             })}
           </div>
           <p className="text-xs text-gray-400 font-bold text-center">
-            すくない めくりで そろえると たかいてん！✨
+            {mode === 'vs'
+              ? 'きみが さきばん！よく おぼえて たくさん そろえよう✨'
+              : 'すくない めくりで そろえると たかいてん！✨'}
           </p>
         </div>
       )}
@@ -300,25 +470,55 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
       {phase === 'play' && (
         <div className="flex flex-col items-center gap-4 w-full max-w-sm px-4">
           {/* Stats */}
-          <div
-            className="flex gap-5 text-center px-6 py-2 rounded-2xl"
-            style={{ background: 'white', border: '2px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
-          >
-            <div>
-              <p className="text-2xl font-black" style={{ color: '#9c36b5' }}>{matchedPairs}<span className="text-sm text-gray-300">/{pairs}</span></p>
-              <p className="text-xs text-gray-400 font-bold">そろった</p>
+          {mode === 'solo' ? (
+            <div
+              className="flex gap-5 text-center px-6 py-2 rounded-2xl"
+              style={{ background: 'white', border: '2px solid rgba(0,0,0,0.06)', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}
+            >
+              <div>
+                <p className="text-2xl font-black" style={{ color: '#9c36b5' }}>{matchedPairs}<span className="text-sm text-gray-300">/{pairs}</span></p>
+                <p className="text-xs text-gray-400 font-bold">そろった</p>
+              </div>
+              <div className="text-gray-200 text-2xl">|</div>
+              <div>
+                <p className="text-2xl font-black text-gray-600">{moves}</p>
+                <p className="text-xs text-gray-400 font-bold">めくり</p>
+              </div>
+              <div className="text-gray-200 text-2xl">|</div>
+              <div>
+                <p className="text-2xl font-black text-gray-600">{elapsed}<span className="text-sm text-gray-300">びょう</span></p>
+                <p className="text-xs text-gray-400 font-bold">じかん</p>
+              </div>
             </div>
-            <div className="text-gray-200 text-2xl">|</div>
-            <div>
-              <p className="text-2xl font-black text-gray-600">{moves}</p>
-              <p className="text-xs text-gray-400 font-bold">めくり</p>
+          ) : (
+            <div className="w-full flex flex-col items-center gap-2">
+              <div className="w-full grid grid-cols-2 gap-3">
+                {([['you', '🙋 きみ', youPairs], ['cpu', '🤖 CPU', cpuPairs]] as [Turn, string, number][]).map(
+                  ([who, label, n]) => {
+                    const active = turn === who;
+                    return (
+                      <div
+                        key={who}
+                        className="rounded-2xl py-2 text-center transition-all"
+                        style={{
+                          background: active ? PURPLE : 'white',
+                          border: active ? '3px solid #9c36b5' : '3px solid rgba(0,0,0,0.06)',
+                          boxShadow: active ? '0 4px 12px rgba(156,54,181,0.3)' : '0 2px 8px rgba(0,0,0,0.05)',
+                          transform: active ? 'scale(1.03)' : 'none',
+                        }}
+                      >
+                        <p className="text-xs font-black" style={{ color: active ? 'rgba(255,255,255,0.85)' : '#adb5bd' }}>{label}</p>
+                        <p className="text-3xl font-black leading-none" style={{ color: active ? 'white' : '#868e96' }}>{n}</p>
+                      </div>
+                    );
+                  },
+                )}
+              </div>
+              <p className="text-sm font-black" style={{ color: turn === 'you' ? '#0ca678' : '#9c36b5' }}>
+                {turn === 'you' ? '🙋 きみの ばん！めくってね' : '🤖 CPU が かんがえちゅう…'}
+              </p>
             </div>
-            <div className="text-gray-200 text-2xl">|</div>
-            <div>
-              <p className="text-2xl font-black text-gray-600">{elapsed}<span className="text-sm text-gray-300">びょう</span></p>
-              <p className="text-xs text-gray-400 font-bold">じかん</p>
-            </div>
-          </div>
+          )}
 
           {/* Board */}
           <div
@@ -365,19 +565,45 @@ export default function MemoryGameScreen({ playerName, onHome }: Props) {
       {phase === 'done' && (
         <div className="flex flex-col items-center gap-5 w-full max-w-sm px-4 animate-[fade-in_0.3s_ease_both]">
           <div className="w-full rounded-3xl px-6 py-7 text-center shadow-xl" style={{ background: PURPLE }}>
-            <p className="text-6xl mb-2" style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
-              {isBest ? '🌟' : '🎉'}
-            </p>
-            <p className="text-2xl font-black text-white drop-shadow">
-              {isBest ? 'あたらしい きろく！' : 'ぜんぶ そろったね！'}
-            </p>
-            <div className="mt-4 flex items-center justify-center gap-2">
-              <span className="text-base font-black text-white/80">⭐ スコア</span>
-              <span className="text-4xl font-black text-white drop-shadow">{points}</span>
-            </div>
-            <p className="text-sm font-bold text-white/80 mt-2">
-              {moves}めくり ・ {elapsed}びょう
-            </p>
+            {mode === 'vs' ? (
+              <>
+                <p className="text-6xl mb-2" style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                  {vsResult === 'win' ? '🏆' : vsResult === 'draw' ? '🤝' : '🙂'}
+                </p>
+                <p className="text-2xl font-black text-white drop-shadow whitespace-pre-line">
+                  {vsResult === 'win' ? 'きみの かち！\nすごい！'
+                    : vsResult === 'draw' ? 'ひきわけ！\nいい しょうぶ！'
+                    : 'おしい！\nまた あそぼう！'}
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-4">
+                  <div>
+                    <p className="text-xs font-black text-white/70">🙋 きみ</p>
+                    <p className="text-4xl font-black text-white drop-shadow">{youPairs}</p>
+                  </div>
+                  <span className="text-2xl font-black text-white/60">-</span>
+                  <div>
+                    <p className="text-xs font-black text-white/70">🤖 CPU</p>
+                    <p className="text-4xl font-black text-white drop-shadow">{cpuPairs}</p>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <p className="text-6xl mb-2" style={{ animation: 'bounce-in 0.5s cubic-bezier(0.34,1.56,0.64,1) both' }}>
+                  {isBest ? '🌟' : '🎉'}
+                </p>
+                <p className="text-2xl font-black text-white drop-shadow">
+                  {isBest ? 'あたらしい きろく！' : 'ぜんぶ そろったね！'}
+                </p>
+                <div className="mt-4 flex items-center justify-center gap-2">
+                  <span className="text-base font-black text-white/80">⭐ スコア</span>
+                  <span className="text-4xl font-black text-white drop-shadow">{points}</span>
+                </div>
+                <p className="text-sm font-bold text-white/80 mt-2">
+                  {moves}めくり ・ {elapsed}びょう
+                </p>
+              </>
+            )}
           </div>
           <button
             onClick={() => handleStart(diff)}
