@@ -124,6 +124,37 @@ const WORDS: ShiritoriWord[] = [
   { kana: 'ろぼっと', emoji: '🤖' },
   { kana: 'わに',   emoji: '🐊' },
   { kana: 'わし',   emoji: '🦅' },
+
+  // ── チェーンを長く保つための補強語 ──
+  // 「し・み・り・め・こ・ね・ま…」で はじまる語が少ないと すぐ行き止まるため、
+  // これらの音で はじまる 子供向けの語を多めに足して、10〜20手つづくようにする。
+  { kana: 'しま',     emoji: '🏝️' },
+  { kana: 'しろ',     emoji: '🏰' },
+  { kana: 'しまうま', emoji: '🦓' },
+  { kana: 'しゃつ',   emoji: '👕' },
+  { kana: 'はし',     emoji: '🥢' },
+  { kana: 'みち',     emoji: '🛣️' },
+  { kana: 'みどり',   emoji: '💚' },
+  { kana: 'りゅう',   emoji: '🐉' },
+  { kana: 'りょうり', emoji: '🍳' },
+  { kana: 'めいろ',   emoji: '🌀' },
+  { kana: 'めだま',   emoji: '👁️' },
+  { kana: 'こあら',   emoji: '🐨' },
+  { kana: 'こおり',   emoji: '🧊' },
+  { kana: 'こい',     emoji: '🎏' },
+  { kana: 'ねぎ',     emoji: '🧅' },
+  { kana: 'まくら',   emoji: '🛏️' },
+  { kana: 'まち',     emoji: '🏙️' },
+  { kana: 'きしゃ',   emoji: '🚂' },
+  { kana: 'きって',   emoji: '🎟️' },
+  { kana: 'つくえ',   emoji: '🪑' },
+  { kana: 'つみき',   emoji: '🧱' },
+  { kana: 'らじお',   emoji: '📻' },
+  { kana: 'にじ',     emoji: '🌈' },
+  { kana: 'ごみ',     emoji: '🗑️' },
+  { kana: 'かたつむり', emoji: '🐌' },
+  { kana: 'みつばち', emoji: '🐝' },
+  { kana: 'りゅっく', emoji: '🎒' },
 ];
 
 /** 小さいかな・濁点を、しりとり連結のために基本かなへ寄せる正規化テーブル */
@@ -174,24 +205,49 @@ function countStartingWith(kana: string, usedKana: Set<string>): number {
   return WORDS.filter((w) => headKana(w) === kana && !isUsed(w, usedKana)).length;
 }
 
-/** 指定の音から はじまる、未使用のことばを1つ返す（なければ null） */
+/**
+ * 指定の音から はじまる、未使用のことばを1つ返す（なければ null）。
+ * すぐ行き止まりにならないよう、「その語のあと まだ続けられる語数」が多い候補を優先する。
+ * （CPU・プレイヤーの正解どちらにも使い、ゲームが はやく終わらないようにする）
+ */
 export function findNextWord(fromKana: string, usedKana: Set<string>): ShiritoriWord | null {
   const matches = WORDS.filter((w) => headKana(w) === fromKana && !isUsed(w, usedKana));
   if (matches.length === 0) return null;
-  return matches[Math.floor(Math.random() * matches.length)];
+
+  // 各候補について「それを使ったあと、つぎに続けられる語数」を数える
+  const scored = matches.map((w) => {
+    const after = new Set(usedKana);
+    after.add(w.kana);
+    return { w, cont: countStartingWith(tailKana(w), after) };
+  });
+  scored.sort((a, b) => b.cont - a.cont);
+
+  // 続きがある候補があれば その上位からランダムに（多様性のため上位3つ）。
+  // 全部 行き止まり(0)なら やむを得ず そこから選ぶ。
+  const alive = scored.filter((s) => s.cont > 0);
+  const pool = alive.length > 0 ? alive.slice(0, Math.min(3, alive.length)) : scored;
+  return pool[Math.floor(Math.random() * pool.length)].w;
+}
+
+/** 1ゲームで選択肢に並べる枚数（正解1＋ダミー5） */
+export const CHOICE_COUNT = 6;
+
+/** このゲームで CPU が こうさんする目標数（10〜20）を返す。早く終わりすぎないため。 */
+export function pickCpuGiveUpTarget(): number {
+  return 10 + Math.floor(Math.random() * 11);
 }
 
 export interface ShiritoriChoices {
-  /** 並べる3つの選択肢（正解1＋ダミー2、シャッフル済み） */
+  /** 並べる選択肢（正解1＋ダミー、シャッフル済み） */
   options: ShiritoriWord[];
   /** 正解のことば（fromKana から はじまる未使用語）。なければ null＝続けられない */
   answer: ShiritoriWord | null;
 }
 
 /**
- * プレイヤーに見せる3択を作る。
+ * プレイヤーに見せる選択肢（CHOICE_COUNT 個）を作る。
  * 正解 = fromKana から はじまる未使用語を1つ。
- * ダミー = fromKana から はじまらない語を2つ（紛らわしさのため未使用優先）。
+ * ダミー = fromKana から はじまらない語（紛らわしさのため未使用優先）。
  */
 export function buildChoices(fromKana: string, usedKana: Set<string>): ShiritoriChoices {
   const answer = findNextWord(fromKana, usedKana);
@@ -200,9 +256,10 @@ export function buildChoices(fromKana: string, usedKana: Set<string>): Shiritori
   const distractorPool = shuffle(
     WORDS.filter((w) => headKana(w) !== fromKana && w.kana !== answer.kana),
   );
-  // 未使用を優先しつつ2つ取る
+  // 未使用を優先しつつ ダミーを取る
+  const need = CHOICE_COUNT - 1;
   const unused = distractorPool.filter((w) => !isUsed(w, usedKana));
-  const distractors = (unused.length >= 2 ? unused : distractorPool).slice(0, 2);
+  const distractors = (unused.length >= need ? unused : distractorPool).slice(0, need);
 
   return { options: shuffle([answer, ...distractors]), answer };
 }

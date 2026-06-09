@@ -5,6 +5,7 @@ import {
   pickStartWord,
   buildChoices,
   findNextWord,
+  pickCpuGiveUpTarget,
   tailKana,
   headKana,
   type ShiritoriWord,
@@ -57,6 +58,8 @@ export default function ShiritoriGameScreen({ playerName, onHome }: Props) {
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   // タイマー内クロージャからも最新スコアを読むためのミラー
   const scoreRef = useRef(0);
+  // このゲームで CPU が こうさんする目標数（10〜20）。早く終わりすぎないように。
+  const targetRef = useRef(15);
 
   function clearTimer() {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -96,6 +99,7 @@ export default function ShiritoriGameScreen({ playerName, onHome }: Props) {
     const start = pickStartWord();
     usedRef.current = new Set([start.kana]);
     scoreRef.current = 0;
+    targetRef.current = pickCpuGiveUpTarget(); // 10〜20
     setChain([start]);
     setScore(0);
     setPhase('play');
@@ -132,6 +136,11 @@ export default function ShiritoriGameScreen({ playerName, onHome }: Props) {
     const cpuFrom = tailKana(word);
     clearTimer();
     timerRef.current = setTimeout(() => {
+      // 目標数まで つなげたら CPU が こうさん → きみのかち！（長すぎ防止・10〜20で決着）
+      if (scoreRef.current >= targetRef.current) {
+        finish('cpu-stuck');
+        return;
+      }
       const cpuWord = findNextWord(cpuFrom, usedRef.current);
       if (!cpuWord) {
         finish('cpu-stuck'); // CPU が続けられない → きみのかち！
